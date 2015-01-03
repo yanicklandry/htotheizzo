@@ -78,7 +78,7 @@ update_homebrew() {
 }
 
 update() {
-    local pip_packages=( virtualenv Pygments httpie awscli )
+    # local pip_packages=( virtualenv Pygments httpie awscli )
 
     echo "htotheizzo is running the update functions"
 
@@ -121,12 +121,12 @@ update() {
         npm update -g
     fi
 
-    if command_exists pip; then
-        echo "Updating pip packages..."
-        for pip_package in "${pip_packages[@]}"; do
-            pip install --upgrade "${pip_package}"
-        done
-    fi
+    # if command_exists pip; then
+    #     echo "Updating pip packages..."
+    #     for pip_package in "${pip_packages[@]}"; do
+    #         pip install --upgrade "${pip_package}"
+    #     done
+    # fi
 
     if [[ -d tmp ]]; then
         rm -rf tmp
