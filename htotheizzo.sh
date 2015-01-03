@@ -112,7 +112,11 @@ update() {
         gem cleanup
     fi
 
-    if command_exists npm; then
+    if command_exists npm-upgrade.sh; then
+        echo "Updating npm (safe way)..."
+        npm-upgrade.sh
+
+    elif command_exists npm; then
         echo "Updating npm..."
         npm update -g
     fi
