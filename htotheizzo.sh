@@ -1,6 +1,6 @@
 #!/bin/bash
 
-THISUSER=jessie
+THISUSER=`whoami`
 
 help() {
     echo "htotheizzo - a simple script that makes updating/upgrading homebrew or apt-get, gems, pip packages, and node packages so much easier"
@@ -19,7 +19,7 @@ replace_sysd() {
 }
 
 update_docker() {
-    local docker_dir="/home/$THISUSER/docker"
+    local docker_dir="/home/$THISUSER/Repos/docker/docker"
 
     # stop docker
     supervisorctl stop docker
