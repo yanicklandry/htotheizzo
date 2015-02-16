@@ -98,6 +98,7 @@ update() {
         echo "Hey there Mac user. At least it's not Windows."
 
         # update
+        echo "## Updating Homebrew..."
         update_homebrew;
 
     else
@@ -106,17 +107,17 @@ update() {
     fi
 
     if command_exists gem; then
-        echo "Updating ruby gems..."
+        echo "## Updating ruby gems..."
         gem update
         gem cleanup
     fi
 
     if command_exists npm-upgrade.sh; then
-        echo "Updating npm (safe way)..."
+        echo "## Updating npm (safe way)..."
         npm-upgrade.sh
 
     elif command_exists npm; then
-        echo "Updating npm..."
+        echo "## Updating npm..."
         npm update -g
     fi
 
