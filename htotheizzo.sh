@@ -134,6 +134,12 @@ update() {
     fi
   fi
 
+  if command_exists rvm; then
+    echo "## Updating rvm"
+    rvm get stable
+    rvm cleanup all
+  fi
+
   if [[ -d tmp ]]; then
     rm -rf tmp
   fi
