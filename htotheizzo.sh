@@ -121,6 +121,12 @@ update() {
     npm update -g
   fi
 
+  if command_exists nvm; then
+    nvm install stable
+    nvm use stable
+    nvm alias default stable
+  fi
+
   if command_exists pip; then
     local pip_packages=`pip list -o | grep -v -i warning | cut -f1 -d' ' | tr  "\n|\r" " " | sed -e 's/^[ \t]*//'`
     echo "## Updating pip packages..."
