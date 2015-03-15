@@ -149,6 +149,11 @@ update() {
     rvm cleanup all
   fi
 
+  if command_exists softwareupdate; then
+    echo "## Updating Apple Software Update"
+    softwareupdate --install --all
+  fi
+
   if [[ -d tmp ]]; then
     rm -rf tmp
   fi
