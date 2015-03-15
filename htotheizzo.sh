@@ -117,11 +117,13 @@ update() {
 
   if command_exists npm-upgrade.sh; then
     echo "## Updating npm (safe way)..."
-    npm-upgrade.sh
+    set -e
+    set -x
 
-  elif command_exists npm; then
-    echo "## Updating npm..."
-    npm update -g
+    for package in $(npm -g outdated --parseable --depth=0 | cut -d: -f2)
+    do
+      npm -g install "$package"
+    done
   fi
 
   if command_exists nvm; then
@@ -131,7 +133,7 @@ update() {
   fi
 
   if command_exists pip; then
-    local pip_packages=`pip list -o | grep -v -i warning | cut -f1 -d' ' | tr  "\n|\r" " " | sed -e 's/^[ \t]*//'`
+    local pip_packages=`pip list -o | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | tr  "\n|\r" " " | sed -e 's/^[ \t]*//'`
     echo "## Updating pip packages..."
     if [ ! -z "$pip_packages" ]; then
       for pip_package in "${pip_packages[@]}"; do
