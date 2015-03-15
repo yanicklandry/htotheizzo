@@ -73,6 +73,9 @@ update_linux() {
 update_homebrew() {
   brew update
   brew upgrade
+  for cask in $(brew cask list); do
+    brew cask install $cask
+  done
   brew cleanup -s --force
   brew cask cleanup
 }
