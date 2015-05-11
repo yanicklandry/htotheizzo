@@ -133,6 +133,8 @@ update() {
   fi
 
   if command_exists pip; then
+    echo "Updating pip tool itself"
+    pip install --upgrade pip
     local pip_packages=`pip list -o | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | tr  "\n|\r" " " | sed -e 's/^[ \t]*//'`
     echo "## Updating pip packages..."
     if [ ! -z "$pip_packages" ]; then
