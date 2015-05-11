@@ -115,6 +115,11 @@ update() {
     gem cleanup
   fi
 
+  if command_exists gem; then
+    echo "## Updating Atom packages (apm)..."
+    apm update --no-confirm
+  fi
+
   if command_exists npm-upgrade.sh; then
     echo "## Updating npm (safe way)..."
     set -e
