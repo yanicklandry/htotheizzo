@@ -72,7 +72,7 @@ update_linux() {
 
 update_homebrew() {
   brew update
-  brew upgrade
+  brew upgrade --all
   for cask in $(brew cask list); do
     brew cask install $cask
   done
