@@ -139,13 +139,13 @@ update() {
 
   if command_exists pip; then
     echo "Updating pip tool itself"
-    pip install --upgrade pip
-    local pip_packages=`pip list -o | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | tr  "\n|\r" " " | sed -e 's/^[ \t]*//'`
+    sudo pip install --upgrade pip
+    local pip_packages=`sudo pip list -o | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | tr  "\n|\r" " " | sed -e 's/^[ \t]*//'`
     echo "## Updating pip packages..."
     if [ ! -z "$pip_packages" ]; then
       for pip_package in "${pip_packages[@]}"; do
         echo "$pip_package"
-        pip install --upgrade "${pip_package}"
+        sudo pip install --upgrade "${pip_package}"
       done
     else
       echo "no outdated packages found."
