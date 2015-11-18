@@ -110,12 +110,6 @@ update() {
   fi
 
   if command_exists gem; then
-    echo "## Updating ruby gems..."
-    gem update
-    gem cleanup
-  fi
-
-  if command_exists gem; then
     echo "## Updating Atom packages (apm)..."
     apm update --no-confirm
   fi
@@ -161,6 +155,12 @@ update() {
   if command_exists softwareupdate; then
     echo "## Updating Apple Software Update"
     softwareupdate --install --all
+  fi
+
+  if command_exists gem; then
+    echo "## Updating ruby gems..."
+    sudo gem update
+    sudo gem cleanup
   fi
 
   if [[ -d tmp ]]; then
