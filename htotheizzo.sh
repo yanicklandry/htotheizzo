@@ -119,15 +119,9 @@ update() {
     apm update --no-confirm
   fi
 
-  if command_exists npm-upgrade.sh; then
-    echo "## Updating npm (safe way)..."
-    set -e
-    set -x
-
-    for package in $(npm -g outdated --parseable --depth=0 | cut -d: -f2)
-    do
-      npm -g install "$package"
-    done
+  if command_exists npm; then
+    echo "## Updating npm..."
+    npm update -g
   fi
 
   if command_exists nvm; then
