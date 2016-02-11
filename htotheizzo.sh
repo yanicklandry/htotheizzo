@@ -114,7 +114,7 @@ update() {
     upgrade_oh_my_zsh
   fi
 
-  if command_exists gem; then
+  if command_exists apm; then
     echo "## Updating Atom packages (apm)..."
     apm update --no-confirm
   fi
