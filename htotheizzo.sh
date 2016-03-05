@@ -84,6 +84,8 @@ update() {
 
   echo "htotheizzo is running the update functions"
 
+  local is_raspberry=`uname -a | grep raspberrypi`;
+
   # detect the OS for the update functions
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
     echo "Hey there Linux user. You rule."
@@ -103,6 +105,18 @@ update() {
     # update
     echo "## Updating Homebrew..."
     update_homebrew;
+
+  elif [[ is_raspberry ]]; then
+    echo "Hello Raspberry Pi."
+    # on linux, make sure they are the super user
+    if [ "$UID" -ne 0 ]; then
+      echo "Please run as root"
+      exit 1
+    fi
+
+    # update
+    update_linux;
+    rpi-update;
 
   else
     echo "We don't have update functions for OS: ${OSTYPE}"
