@@ -106,6 +106,12 @@ update() {
     echo "## Updating Homebrew..."
     update_homebrew;
 
+    # Update Mac App Store using : https://github.com/argon/mas
+    if command_exists mas; then
+      echo "## Updating Mac App Store..."
+      mas upgrade;
+    fi
+
   elif [[ is_raspberry ]]; then
     echo "Hello Raspberry Pi."
     # on linux, make sure they are the super user
@@ -146,13 +152,13 @@ update() {
 
   if command_exists pip; then
     echo "Updating pip tool itself"
-    sudo pip install --upgrade pip
-    local pip_packages=`sudo pip list -o | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | tr  "\n|\r" " " | sed -e 's/^[ \t]*//'`
+    pip install --upgrade pip
+    local pip_packages=`pip list -o | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | tr  "\n|\r" " " | sed -e 's/^[ \t]*//'`
     echo "## Updating pip packages..."
     if [ ! -z "$pip_packages" ]; then
       for pip_package in "${pip_packages[@]}"; do
         echo "$pip_package"
-        sudo pip install --upgrade "${pip_package}"
+        pip install --upgrade "${pip_package}"
       done
     else
       echo "no outdated packages found."
@@ -172,8 +178,8 @@ update() {
 
   if command_exists gem; then
     echo "## Updating ruby gems..."
-    sudo gem update
-    sudo gem cleanup
+    gem update
+    gem cleanup
   fi
 
   if [[ -d tmp ]]; then
