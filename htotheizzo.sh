@@ -21,10 +21,10 @@ replace_sysd() {
 update_docker() {
   local docker_dir="/home/$THISUSER/Repos/docker/docker"
 
-  # stop docker
-  supervisorctl stop docker
-
   if [[ -d $docker_dir ]]; then
+    # stop docker
+    supervisorctl stop docker
+
     cd $docker_dir
 
     # Include contributed completions
@@ -50,15 +50,16 @@ update_docker() {
     fi
     yes | cp -rf contrib/syntax/vim /home/$THISUSER/.vim/bundle/Dockerfile
     chown -R $THISUSER /home/$THISUSER/.vim/bundle/Dockerfile
+
+    # get the binary
+    curl https://master.dockerproject.com/linux/amd64/docker > /usr/bin/docker
+
+    # copy systemd config
+    # replace_sysd
+
+    supervisorctl start docker
   fi
 
-  # get the binary
-  curl https://master.dockerproject.com/linux/amd64/docker > /usr/bin/docker
-
-  # copy systemd config
-  # replace_sysd
-
-  supervisorctl start docker
 }
 
 update_linux() {
