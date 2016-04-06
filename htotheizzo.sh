@@ -81,11 +81,20 @@ update_homebrew() {
   brew cask cleanup
 }
 
+update_itself() {
+  echo "## Updating htotheizzo itself..."
+  DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
+  cd $DIR;
+  git pull;
+}
+
 update() {
 
   echo "htotheizzo is running the update functions"
 
   local is_raspberry=`uname -a | grep raspberrypi`;
+
+  update_itself;
 
   # detect the OS for the update functions
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
