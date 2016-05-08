@@ -6,6 +6,10 @@ Update script to update Homebrew, NPM and Gem packages all at once.
 
 Originally from https://gist.github.com/jfrazelle/57dbf1fccfa02151ff3f, I only very slightly adapted it.
 
+## Requirements
+
+Optional : https://github.com/kcrawford/dockutil to auto update from Dock
+
 ## Setup
 
 - Make sure directory exists : `mkdir -p ~/bin`

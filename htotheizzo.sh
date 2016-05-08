@@ -76,12 +76,27 @@ update_homebrew() {
   brew upgrade --all
   for cask in $(brew cask list); do
     brew cask install $cask
-    cd `brew cask info $cask | sed -n 4p | awk '{print $1}'`/..
+    caskinfo=`brew cask info $cask`
+    caskdir=`echo $caskinfo | sed -n 4p | awk '{print $1}'`
+    cd $caskdir/..
     versions=($(ls -1t | tail -n+2))
+    atleastone=0
     for version in "${versions[@]}"; do
+      atleastone=1
       echo "deleting $version";
       mv $version ~/.Trash
     done
+    if [ "$atleastone" -ne 0 ]; then
+
+      name=`echo $caskinfo | grep "(app)" | sed 's/.app (app)//g' | xargs`
+      app=`echo $caskinfo | grep "(app)" | sed 's/ (app)//g' | xargs`
+      echo "$name is updated"
+      if command_exists dockutil; then
+        echo "Updating $name from the Dock"
+        dockutil --remove "$name"
+        dockutil --add "$app"
+      fi
+    fi
   done
   brew cleanup -s --force
   brew cask cleanup
