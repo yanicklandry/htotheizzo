@@ -76,6 +76,12 @@ update_homebrew() {
   brew upgrade --all
   for cask in $(brew cask list); do
     brew cask install $cask
+    cd `brew cask info $cask | sed -n 4p | awk '{print $1}'`/..
+    versions=($(ls -1t | tail -n+2))
+    for version in "${versions[@]}"; do
+      echo "deleting $version";
+      mv $version ~/.Trash
+    done
   done
   brew cleanup -s --force
   brew cask cleanup
