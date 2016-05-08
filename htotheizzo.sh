@@ -83,9 +83,19 @@ update_homebrew() {
 
 update_itself() {
   echo "## Updating htotheizzo itself..."
-  DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
-  cd $DIR;
-  git pull;
+  OURPWD=$PWD
+  FILE="${BASH_SOURCE[0]}"
+  cd "$(dirname "$FILE")"
+  LINK=$(readlink "$(basename "$FILE")")
+  while [ "$LINK" ]; do
+    cd "$(dirname "$LINK")"
+    LINK=$(readlink "$(basename "$FILE")")
+  done
+  REALPATH="$PWD/$(basename "$FILE")"
+  cd "$OURPWD"
+  DIR="$( cd -P "$( dirname "$REALPATH" )" && pwd )"
+  cd $DIR
+  git pull
 }
 
 update() {
