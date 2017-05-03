@@ -73,7 +73,7 @@ update_linux() {
 
 update_homebrew() {
   brew update
-  brew upgrade --all
+  brew upgrade
   for cask in $(brew cask list); do
     brew cask install $cask
     caskinfo=`brew cask info $cask`
@@ -183,6 +183,11 @@ update() {
   if command_exists npm; then
     echo "## Updating npm..."
     npm update -g
+  fi
+
+  if command_exists yarn; then
+    echo "## Updating yarn..."
+    curl -o- -L https://yarnpkg.com/install.sh | bash
   fi
 
   if command_exists nvm; then
