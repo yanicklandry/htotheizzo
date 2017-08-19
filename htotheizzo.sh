@@ -130,6 +130,11 @@ update() {
       mas upgrade;
     fi
 
+    # Update Microsoft Office
+    if [ -d /Library/Application\ Support/Microsoft/MAU2.0/Microsoft\ AutoUpdate.app ]; then
+      open /Library/Application\ Support/Microsoft/MAU2.0/Microsoft\ AutoUpdate.app
+    fi
+
   elif [[ is_raspberry ]]; then
     echo "Hello Raspberry Pi."
     # on linux, make sure they are the super user
