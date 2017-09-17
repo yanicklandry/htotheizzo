@@ -12,8 +12,11 @@ Optional : https://github.com/kcrawford/dockutil to auto update from Dock
 
 ## Setup
 
-- Make sure directory exists : `mkdir -p ~/bin`
-- Clone to local : `git clone https://github.com/yanicklandry/htotheizzo.git ~/bin/.htotheizzo`
-- Link : `ln -s ~/bin/.htotheizzo/htotheizzo.sh ~/bin/htotheizzo.sh`
-- Permissions : `chmod a+x ~/bin/htotheizzo.sh`
-- Make sure directory is executable : `edit ~/.bashrc` and add `export PATH="$PATH:$HOME/bin"`
+```
+mkdir -p ~/bin # Make sure directory exists
+git clone https://github.com/yanicklandry/htotheizzo.git ~/bin/.htotheizzo # Clone to local
+ln -s ~/bin/.htotheizzo/htotheizzo.sh ~/bin/htotheizzo.sh # Link
+chmod a+x ~/bin/htotheizzo.sh # Permissions
+echo 'export PATH="$PATH:$HOME/bin"' >> ~/.bashrc # Make sure directory is executable
+source ~/.bashrc
+```
