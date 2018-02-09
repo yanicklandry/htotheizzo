@@ -182,7 +182,7 @@ update() {
     echo "Updating pip tool itself"
     export PIP_REQUIRE_VIRTUALENV=false
     pip install --upgrade pip
-    local pip_packages=`pip list -o --format=legacy | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | sed -e 's/^[ \t]*//'`
+    local pip_packages=`pip list -o --format=legacy --trusted-host mirrors.aliyun.com | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | sed -e 's/^[ \t]*//'`
     echo "## Updating pip packages..."
     if [ ! -z "$pip_packages" ]; then
       echo "$pip_packages" | while read pip_package; do
