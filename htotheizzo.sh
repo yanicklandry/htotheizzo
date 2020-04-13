@@ -207,8 +207,8 @@ update() {
 
   if command_exists gem; then
     echo "## Updating ruby gems..."
-    gem update
-    gem cleanup
+    sudo gem update
+    sudo gem cleanup
   fi
 
   if [[ -d tmp ]]; then
