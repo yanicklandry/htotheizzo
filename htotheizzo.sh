@@ -181,12 +181,29 @@ update() {
     echo "Updating pip tool itself"
     export PIP_REQUIRE_VIRTUALENV=false
     pip install --upgrade pip
-    local pip_packages=`pip list -o --format=legacy --trusted-host mirrors.aliyun.com | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | sed -e 's/^[ \t]*//'`
+    local pip_packages=`pip list -o --trusted-host mirrors.aliyun.com | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | sed -e 's/^[ \t]*//'`
     echo "## Updating pip packages..."
     if [ ! -z "$pip_packages" ]; then
       echo "$pip_packages" | while read pip_package; do
         echo "## Upgrading $pip_package..."
         pip install --upgrade "${pip_package}"
+      done
+    else
+      echo "no outdated packages found."
+    fi
+    export PIP_REQUIRE_VIRTUALENV=true
+  fi
+
+  if command_exists pip3; then
+    # echo "Updating pip3 tool itself"
+    export PIP_REQUIRE_VIRTUALENV=false
+    # pip3 install --upgrade pip3
+    local pip3_packages=`pip3 list -o --trusted-host mirrors.aliyun.com | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | sed -e 's/^[ \t]*//'`
+    echo "## Updating pip3 packages..."
+    if [ ! -z "$pip3_packages" ]; then
+      echo "$pip3_packages" | while read pip3_package; do
+        echo "## Upgrading $pip3_package..."
+        pip3 install --upgrade "${pip3_package}"
       done
     else
       echo "no outdated packages found."
