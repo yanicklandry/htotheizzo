@@ -228,6 +228,11 @@ update() {
     sudo gem cleanup
   fi
 
+  if command_exists snap; then
+    echo "## Updating Snap packages..."
+    snap refresh
+  fi
+
   if [[ -d tmp ]]; then
     rm -rf tmp
   fi
