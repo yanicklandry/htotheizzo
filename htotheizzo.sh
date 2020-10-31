@@ -211,6 +211,11 @@ update() {
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
+  if command_exists pipenv; then
+    # echo "Clearing pipenv cache"
+    pipenv --clear
+  fi
+
   if command_exists rvm; then
     echo "## Updating rvm"
     rvm get stable
@@ -231,6 +236,13 @@ update() {
   if command_exists snap; then
     echo "## Updating Snap packages..."
     snap refresh
+    echo "## Clearing old Snaps"
+    set -eu
+
+    LANG=C snap list --all | awk '/disabled/{print $1, $3}' |
+        while read snapname revision; do
+            snap remove "$snapname" --revision="$revision"
+        done
   fi
 
   if [[ -d tmp ]]; then
