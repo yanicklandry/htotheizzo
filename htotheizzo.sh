@@ -69,12 +69,13 @@ update_linux() {
   DEBIAN_FRONTEND=noninteractive apt-get -y autoclean
   DEBIAN_FRONTEND=noninteractive apt-get -y clean
   update_docker
+  update_homebrew
 }
 
 update_homebrew() {
   /usr/local/bin/brew update
   /usr/local/bin/brew upgrade
-  /usr/local/bin/brew cask reinstall `/usr/local/bin/brew cask outdated`
+  /usr/local/bin/brew cask reinstall `/usr/local/bin/brew outdated --cask`
   /usr/local/bin/brew cleanup -s
 }
 
