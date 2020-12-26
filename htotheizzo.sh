@@ -73,10 +73,10 @@ update_linux() {
 }
 
 update_homebrew() {
-  /usr/local/bin/brew update
-  /usr/local/bin/brew upgrade
-  /usr/local/bin/brew cask reinstall `/usr/local/bin/brew outdated --cask`
-  /usr/local/bin/brew cleanup -s
+  brew update
+  brew upgrade
+  brew cask reinstall `brew outdated --cask`
+  brew cleanup -s
 }
 
 update_itself() {
