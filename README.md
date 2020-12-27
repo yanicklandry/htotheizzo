@@ -20,3 +20,12 @@ chmod a+x ~/bin/htotheizzo.sh # Permissions
 echo 'export PATH="$PATH:$HOME/bin"' >> ~/.bashrc # Make sure directory is executable
 source ~/.bashrc
 ```
+
+### Setup on Linux
+
+On Linux, do this additional step to allow you to run HomeBrew on Linux as root :
+
+```
+sudo echo "sudo -u $(whoami) $(which brew) \$@" > /usr/local/bin/brew
+sudo chmod a+x /usr/local/bin/brew
+```

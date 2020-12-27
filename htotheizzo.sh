@@ -63,13 +63,17 @@ update_docker() {
 }
 
 update_linux() {
-  DEBIAN_FRONTEND=noninteractive apt-get -y update
-  DEBIAN_FRONTEND=noninteractive apt-get -y upgrade
-  DEBIAN_FRONTEND=noninteractive apt-get -y autoremove
-  DEBIAN_FRONTEND=noninteractive apt-get -y autoclean
-  DEBIAN_FRONTEND=noninteractive apt-get -y clean
   update_docker
   update_homebrew
+}
+
+update apt() {
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get -y update
+  apt-get -y upgrade
+  apt-get -y autoremove
+  apt-get -y autoclean
+  apt-get -y clean
 }
 
 update_homebrew() {
