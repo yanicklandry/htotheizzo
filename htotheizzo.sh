@@ -63,11 +63,11 @@ update_docker() {
 }
 
 update_linux() {
+  update_apt
   update_docker
-  update_homebrew
 }
 
-update apt() {
+update_apt() {
   export DEBIAN_FRONTEND=noninteractive
   apt-get -y update
   apt-get -y upgrade
@@ -124,10 +124,6 @@ update() {
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Hey there Mac user. At least it's not Windows."
 
-    # update
-    echo "## Updating Homebrew..."
-    update_homebrew;
-
     # Update Mac App Store using : https://github.com/argon/mas
     if command_exists mas; then
       echo "## Updating Mac App Store..."
@@ -159,6 +155,11 @@ update() {
   if command_exists upgrade_oh_my_zsh; then
     echo "## Updating Oh My ZSH..."
     upgrade_oh_my_zsh
+  fi
+
+  if command_exists brew; then
+    echo "## Updating Home Brew..."
+    update_homebrew
   fi
 
   if command_exists apm; then
