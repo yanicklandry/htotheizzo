@@ -194,16 +194,16 @@ update() {
   if command_exists pip; then
     echo "Updating pip tool itself"
     export PIP_REQUIRE_VIRTUALENV=false
-    pip install --upgrade pip --user
-    pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 pip install --user
+    python -m pip install --upgrade pip --user
+    python -m pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 python -m pip install --user
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
   if command_exists pip3; then
     # echo "Updating pip3 tool itself"
     export PIP_REQUIRE_VIRTUALENV=false
-    pip3 install --upgrade pip --user
-    pip3 list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 pip3 install --user
+    python3 -m pip install --upgrade pip --user
+    python3 -m pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 python3 -m pip install --user
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
