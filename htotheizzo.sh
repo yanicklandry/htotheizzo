@@ -1,6 +1,8 @@
 #!/bin/bash
 
-THISUSER=$(whoami)
+THISUSER=$(who am i | awk '{print $1}')
+
+echo "Running as $THISUSER."
 
 help() {
   echo "htotheizzo - a simple script that makes updating/upgrading homebrew or apt-get, gems, pip packages, and node packages so much easier"
@@ -102,7 +104,7 @@ update_itself() {
   cd "$OURPWD"
   DIR="$(cd -P "$(dirname "$REALPATH")" && pwd)"
   cd $DIR
-  git pull
+  sudo -u $THISUSER git pull
 }
 
 update() {
