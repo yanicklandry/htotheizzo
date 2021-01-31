@@ -1,13 +1,13 @@
 #!/bin/bash
 
-THISUSER=`whoami`
+THISUSER=$(whoami)
 
 help() {
   echo "htotheizzo - a simple script that makes updating/upgrading homebrew or apt-get, gems, pip packages, and node packages so much easier"
 }
 
 command_exists() {
-  command -v "$@" > /dev/null 2>&1
+  command -v "$@" >/dev/null 2>&1
 }
 
 replace_sysd() {
@@ -40,7 +40,7 @@ update_docker() {
       for manFile in "$manDir"/*; do
         local manName="$(basename "$manFile")" # "docker-build.1"
         mkdir -p "$manRoot/$manBase"
-        gzip -c "$manFile" > "$manRoot/$manBase/$manName.gz"
+        gzip -c "$manFile" >"$manRoot/$manBase/$manName.gz"
       done
     done
 
@@ -52,7 +52,7 @@ update_docker() {
     chown -R $THISUSER /home/$THISUSER/.vim/bundle/Dockerfile
 
     # get the binary
-    curl https://master.dockerproject.com/linux/amd64/docker > /usr/bin/docker
+    curl https://master.dockerproject.com/linux/amd64/docker >/usr/bin/docker
 
     # copy systemd config
     # replace_sysd
@@ -79,7 +79,12 @@ update_apt() {
 update_homebrew() {
   brew update
   brew upgrade
-  brew cask reinstall `brew outdated --cask`
+  OUTDATED_CASKS=$(brew outdated --cask)
+  if test -z "$OUTDATED_CASKS"; then
+    echo "no brew casks to update"
+  else
+    brew reinstall --cask $OUTDATED_CASKS
+  fi
   brew cleanup -s
 }
 
@@ -95,7 +100,7 @@ update_itself() {
   done
   REALPATH="$PWD/$(basename "$FILE")"
   cd "$OURPWD"
-  DIR="$( cd -P "$( dirname "$REALPATH" )" && pwd )"
+  DIR="$(cd -P "$(dirname "$REALPATH")" && pwd)"
   cd $DIR
   git pull
 }
@@ -104,9 +109,9 @@ update() {
 
   echo "htotheizzo is running the update functions"
 
-  local is_raspberry=`uname -a | grep raspberrypi`;
+  local is_raspberry=$(uname -a | grep raspberrypi)
 
-  update_itself;
+  update_itself
 
   # detect the OS for the update functions
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
@@ -119,7 +124,7 @@ update() {
     fi
 
     # update
-    update_linux;
+    update_linux
 
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Hey there Mac user. At least it's not Windows."
@@ -127,7 +132,7 @@ update() {
     # Update Mac App Store using : https://github.com/argon/mas
     if command_exists mas; then
       echo "## Updating Mac App Store..."
-      mas upgrade;
+      mas upgrade
     fi
 
     # Update Microsoft Office
@@ -144,8 +149,8 @@ update() {
     fi
 
     # update
-    update_linux;
-    rpi-update;
+    update_linux
+    rpi-update
 
   else
     echo "We don't have update functions for OS: ${OSTYPE}"
@@ -187,33 +192,15 @@ update() {
     echo "Updating pip tool itself"
     export PIP_REQUIRE_VIRTUALENV=false
     pip install --upgrade pip
-    local pip_packages=`pip list -o --trusted-host mirrors.aliyun.com | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | sed -e 's/^[ \t]*//'`
-    echo "## Updating pip packages..."
-    if [ ! -z "$pip_packages" ]; then
-      echo "$pip_packages" | while read pip_package; do
-        echo "## Upgrading $pip_package..."
-        pip install --upgrade "${pip_package}"
-      done
-    else
-      echo "no outdated packages found."
-    fi
+    pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 pip install --user
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
   if command_exists pip3; then
     # echo "Updating pip3 tool itself"
     export PIP_REQUIRE_VIRTUALENV=false
-    # pip3 install --upgrade pip3
-    local pip3_packages=`pip3 list -o --trusted-host mirrors.aliyun.com | grep -v -i -E "warning|Could not|--allow-" | cut -f1 -d' ' | sed -e 's/^[ \t]*//'`
-    echo "## Updating pip3 packages..."
-    if [ ! -z "$pip3_packages" ]; then
-      echo "$pip3_packages" | while read pip3_package; do
-        echo "## Upgrading $pip3_package..."
-        pip3 install --upgrade "${pip3_package}"
-      done
-    else
-      echo "no outdated packages found."
-    fi
+    pip3 install --upgrade pip
+    pip3 list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 pip3 install --user
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
@@ -246,9 +233,9 @@ update() {
     set -eu
 
     LANG=C snap list --all | awk '/disabled/{print $1, $3}' |
-        while read snapname revision; do
-            snap remove "$snapname" --revision="$revision"
-        done
+      while read snapname revision; do
+        snap remove "$snapname" --revision="$revision"
+      done
   fi
 
   if [[ -d tmp ]]; then
