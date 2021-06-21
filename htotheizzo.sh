@@ -131,6 +131,12 @@ update() {
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Hey there Mac user. At least it's not Windows."
 
+    # Install Apple Command Line Tools (necessary after an update)
+    if command_exists mas; then
+      echo "## Updating Apple Command Line Tools..."
+      xcode-select --install
+    fi
+
     # Update Mac App Store using : https://github.com/argon/mas
     if command_exists mas; then
       echo "## Updating Mac App Store..."
