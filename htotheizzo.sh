@@ -115,6 +115,11 @@ update() {
 
   update_itself
 
+  if command_exists kav; then
+    echo "## Updating Kaspersky Security Tools..."
+    kav update
+  fi
+
   # detect the OS for the update functions
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
     echo "Hey there Linux user. You rule."
