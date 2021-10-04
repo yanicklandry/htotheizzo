@@ -79,15 +79,15 @@ update_apt() {
 }
 
 update_homebrew() {
-  brew update
-  brew upgrade
+  sudo -u $THISUSER brew update
+  sudo -u $THISUSER brew upgrade
   OUTDATED_CASKS=$(brew outdated --cask)
   if test -z "$OUTDATED_CASKS"; then
     echo "no brew casks to update"
   else
-    brew reinstall --cask $OUTDATED_CASKS
+    sudo -u $THISUSER brew reinstall --cask $OUTDATED_CASKS
   fi
-  brew cleanup -s
+  sudo -u $THISUSER brew cleanup -s
 }
 
 update_itself() {
@@ -187,8 +187,8 @@ update() {
 
   if command_exists npm; then
     echo "## Updating npm..."
-    npm install -g npm
-    npm update -g
+    sudo -u $THISUSER npm install -g npm
+    sudo -u $THISUSER npm update -g
   fi
 
   if command_exists yarn; then
