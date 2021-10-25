@@ -71,23 +71,23 @@ update_linux() {
 
 update_apt() {
   export DEBIAN_FRONTEND=noninteractive
-  apt-get -y update
-  apt-get -y upgrade
-  apt-get -y autoremove
-  apt-get -y autoclean
-  apt-get -y clean
+  sudo apt-get -y update
+  sudo apt-get -y upgrade
+  sudo apt-get -y autoremove
+  sudo apt-get -y autoclean
+  sudo apt-get -y clean
 }
 
 update_homebrew() {
-  sudo -u $THISUSER brew update
-  sudo -u $THISUSER brew upgrade
+  brew update
+  brew upgrade
   OUTDATED_CASKS=$(brew outdated --cask)
   if test -z "$OUTDATED_CASKS"; then
     echo "no brew casks to update"
   else
-    sudo -u $THISUSER brew reinstall --cask $OUTDATED_CASKS
+    brew reinstall --cask $OUTDATED_CASKS
   fi
-  sudo -u $THISUSER brew cleanup -s
+  brew cleanup -s
 }
 
 update_itself() {
@@ -104,7 +104,7 @@ update_itself() {
   cd "$OURPWD"
   DIR="$(cd -P "$(dirname "$REALPATH")" && pwd)"
   cd $DIR
-  sudo -u $THISUSER git pull
+  git pull
 }
 
 update() {
@@ -123,12 +123,6 @@ update() {
   # detect the OS for the update functions
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
     echo "Hey there Linux user. You rule."
-
-    # on linux, make sure they are the super user
-    if [ "$UID" -ne 0 ]; then
-      echo "Please run as root"
-      exit 1
-    fi
 
     # update
     update_linux
@@ -187,8 +181,8 @@ update() {
 
   if command_exists npm; then
     echo "## Updating npm..."
-    sudo -u $THISUSER npm install -g npm
-    sudo -u $THISUSER npm update -g
+    npm install -g npm
+    npm update -g
   fi
 
   if command_exists yarn; then
@@ -205,16 +199,16 @@ update() {
   if command_exists pip; then
     echo "Updating pip tool itself"
     export PIP_REQUIRE_VIRTUALENV=false
-    sudo -u $THISUSER python -m pip install --upgrade pip --user
-    sudo -u $THISUSER python -m pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 python -m pip install --user
+    python -m pip install --upgrade pip --user
+    python -m pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 python -m pip install --user
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
   if command_exists pip3; then
     # echo "Updating pip3 tool itself"
     export PIP_REQUIRE_VIRTUALENV=false
-    sudo -u $THISUSER python3 -m pip install --upgrade pip --user
-    sudo -u $THISUSER python3 -m pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 python3 -m pip install --user
+    python3 -m pip install --upgrade pip --user
+    python3 -m pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 python3 -m pip install --user
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
@@ -242,13 +236,13 @@ update() {
 
   if command_exists snap; then
     echo "## Updating Snap packages..."
-    snap refresh
+    sudo snap refresh
     echo "## Clearing old Snaps"
     set -eu
 
     LANG=C snap list --all | awk '/disabled/{print $1, $3}' |
       while read snapname revision; do
-        snap remove "$snapname" --revision="$revision"
+        sudo snap remove "$snapname" --revision="$revision"
       done
   fi
 
