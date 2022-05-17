@@ -71,11 +71,12 @@ update_linux() {
 
 update_apt() {
   export DEBIAN_FRONTEND=noninteractive
-  sudo apt-get -y update
-  sudo apt-get -y upgrade
-  sudo apt-get -y autoremove
-  sudo apt-get -y autoclean
-  sudo apt-get -y clean
+  sudo apt -y update
+  sudo apt -y upgrade
+  sudo apt -y dist-upgrade
+  sudo apt -y autoremove
+  sudo apt -y autoclean
+  sudo apt -y clean
 }
 
 update_homebrew() {
