@@ -132,7 +132,7 @@ update() {
     echo "Hey there Mac user. At least it's not Windows."
 
     # Install Apple Command Line Tools (necessary after an update)
-    if command_exists mas; then
+    if command_exists xcode-select; then
       echo "## Updating Apple Command Line Tools..."
       xcode-select --install
     fi
