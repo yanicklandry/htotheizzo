@@ -29,3 +29,21 @@ On Linux, do this additional step to allow you to run HomeBrew on Linux as root 
 sudo echo "sudo -u $(whoami) $(which brew) \$@" > /usr/local/bin/brew
 sudo chmod a+x /usr/local/bin/brew
 ```
+
+## Usage
+
+It's better to have sudo authorization while still being logged as your user. For example :
+
+```
+sudo ls
+# enter your password
+htotheizzo.sh
+```
+
+### Skip one command
+
+Example :
+
+```
+skip_kav=1 skip_mas=1 htotheizzo.sh
+```

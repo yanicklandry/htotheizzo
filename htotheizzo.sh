@@ -9,7 +9,17 @@ help() {
 }
 
 command_exists() {
-  command -v "$@" >/dev/null 2>&1
+
+  varname="skip_$@"
+  SKIP_CMD_VAR="${!varname}"
+
+  if [[ -z "${SKIP_CMD_VAR}" ]]; then
+    command -v "$@" >/dev/null 2>&1
+    return 0
+  else
+    echo "Skipped $@"
+    return 1
+  fi
 }
 
 replace_sysd() {
