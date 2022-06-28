@@ -175,9 +175,9 @@ update() {
     echo "Moving on..."
   fi
 
-  if command_exists upgrade_oh_my_zsh; then
+  if command_exists omz; then
     echo "## Updating Oh My ZSH..."
-    upgrade_oh_my_zsh
+    omz update
   fi
 
   if command_exists brew; then
