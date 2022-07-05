@@ -14,12 +14,13 @@ command_exists() {
   SKIP_CMD_VAR="${!varname}"
 
   if [[ -z "${SKIP_CMD_VAR}" ]]; then
-    command -v "$@" >/dev/null 2>&1
-    return 0
+    echo ""
   else
     echo "Skipped $@"
     return 1
   fi
+
+  command -v "$@" >/dev/null 2>&1
 }
 
 replace_sysd() {
