@@ -78,6 +78,10 @@ update_docker() {
 update_linux() {
   update_apt
   update_docker
+  if command_exists brew; then
+    echo "## Updating Home Brew..."
+    update_homebrew
+  fi
 }
 
 update_apt() {
@@ -91,6 +95,12 @@ update_apt() {
 }
 
 update_homebrew() {
+  brew update
+  brew upgrade
+  brew cleanup -s
+}
+
+update_homebrew_with_casks() {
   brew update
   brew upgrade
   OUTDATED_CASKS=$(brew outdated --cask)
@@ -142,6 +152,11 @@ update() {
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Hey there Mac user. At least it's not Windows."
 
+    if command_exists brew; then
+      echo "## Updating Home Brew..."
+      update_homebrew_with_casks
+    fi
+
     # Install Apple Command Line Tools (necessary after an update)
     if command_exists xcode-select; then
       echo "## Updating Apple Command Line Tools..."
@@ -181,11 +196,6 @@ update() {
     omz update
   fi
 
-  if command_exists brew; then
-    echo "## Updating Home Brew..."
-    update_homebrew
-  fi
-
   if command_exists apm; then
     echo "## Updating Atom packages (apm)..."
     apm update --no-confirm
@@ -195,6 +205,7 @@ update() {
     echo "## Updating npm..."
     npm install -g npm
     npm update -g
+    npm audit fix
   fi
 
   if command_exists yarn; then
@@ -212,7 +223,7 @@ update() {
     echo "Updating pip tool itself"
     export PIP_REQUIRE_VIRTUALENV=false
     pip install --upgrade pip --user
-    pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 pip install --user
+    pip freeze --user | cut -d'=' -f1 | xargs -n1 pip install -U
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
@@ -220,7 +231,7 @@ update() {
     # echo "Updating pip3 tool itself"
     export PIP_REQUIRE_VIRTUALENV=false
     python3 -m pip install --upgrade pip --user
-    python3 -m pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 python3 -m pip install --user
+    pip3 freeze --user | cut -d'=' -f1 | xargs -n1 pip3 install -U
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
