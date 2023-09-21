@@ -152,15 +152,16 @@ update() {
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Hey there Mac user. At least it's not Windows."
 
-    if command_exists brew; then
-      echo "## Updating Home Brew..."
-      update_homebrew_with_casks
-    fi
-
     # Install Apple Command Line Tools (necessary after an update)
     if command_exists xcode-select; then
       echo "## Updating Apple Command Line Tools..."
+      sudo xcodebuild -license accept
       xcode-select --install
+    fi
+
+    if command_exists brew; then
+      echo "## Updating Home Brew..."
+      update_homebrew_with_casks
     fi
 
     # Update Mac App Store using : https://github.com/argon/mas
