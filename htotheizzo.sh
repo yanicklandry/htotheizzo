@@ -205,8 +205,7 @@ update() {
   if command_exists npm; then
     echo "## Updating npm..."
     npm install -g npm
-    npm update -g
-    npm audit fix
+    npx npm-check --global --update-all
   fi
 
   if command_exists yarn; then
