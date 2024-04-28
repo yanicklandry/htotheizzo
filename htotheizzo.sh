@@ -94,6 +94,13 @@ update_apt() {
   sudo apt -y clean
 }
 
+update_vscode_ext() {
+  if command_exists code; then
+    echo "## Updating VS Code Extensions..."
+    code --update-extensions
+  fi
+}
+
 update_homebrew() {
   brew update
   brew upgrade
@@ -136,6 +143,8 @@ update() {
   local is_raspberry=$(uname -a | grep raspberrypi)
 
   update_itself
+
+  update_vscode_ext
 
   if command_exists kav; then
     echo "## Updating Kaspersky Security Tools..."
