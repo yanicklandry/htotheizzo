@@ -76,8 +76,10 @@ update_docker() {
 }
 
 update_linux() {
+  sudo echo "Got sudo."
   update_apt
   update_docker
+  update_snap
   if command_exists brew; then
     echo "## Updating Home Brew..."
     update_homebrew
@@ -92,6 +94,19 @@ update_apt() {
   sudo apt -y autoremove
   sudo apt -y autoclean
   sudo apt -y clean
+}
+
+update_snap() {
+  if command_exists snap; then
+    echo "## Updating Snap packages..."
+    sudo snap refresh
+    echo "## Clearing old Snaps"
+
+    LANG=C snap list --all | awk '/disabled/{print $1, $3}' |
+      while read snapname revision; do
+        sudo snap remove "$snapname" --revision="$revision"
+      done
+  fi
 }
 
 update_vscode_ext() {
@@ -142,15 +157,6 @@ update() {
 
   local is_raspberry=$(uname -a | grep raspberrypi)
 
-  update_itself
-
-  update_vscode_ext
-
-  if command_exists kav; then
-    echo "## Updating Kaspersky Security Tools..."
-    kav update
-  fi
-
   # detect the OS for the update functions
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
     echo "Hey there Linux user. You rule."
@@ -199,6 +205,15 @@ update() {
   else
     echo "We don't have update functions for OS: ${OSTYPE}"
     echo "Moving on..."
+  fi
+
+  update_itself
+
+  update_vscode_ext
+
+  if command_exists kav; then
+    echo "## Updating Kaspersky Security Tools..."
+    kav update
   fi
 
   if command_exists omz; then
@@ -264,18 +279,6 @@ update() {
     echo "## Updating ruby gems..."
     sudo gem update
     sudo gem cleanup
-  fi
-
-  if command_exists snap; then
-    echo "## Updating Snap packages..."
-    sudo snap refresh
-    echo "## Clearing old Snaps"
-    set -eu
-
-    LANG=C snap list --all | awk '/disabled/{print $1, $3}' |
-      while read snapname revision; do
-        sudo snap remove "$snapname" --revision="$revision"
-      done
   fi
 
   if [[ -d tmp ]]; then
