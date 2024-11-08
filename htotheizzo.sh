@@ -80,6 +80,9 @@ update_linux() {
   update_apt
   update_docker
   update_snap
+  update_flatpak
+  update_bun
+  clean_logs
   if command_exists brew; then
     echo "## Updating Home Brew..."
     update_homebrew
@@ -94,6 +97,9 @@ update_apt() {
   sudo apt -y autoremove
   sudo apt -y autoclean
   sudo apt -y clean
+  sudo apt-get purge -y
+  sudo apt-get autoremove --purge -y
+  sudo rm -rf /var/lib/apt/lists/*
 }
 
 update_snap() {
@@ -101,12 +107,33 @@ update_snap() {
     echo "## Updating Snap packages..."
     sudo snap refresh
     echo "## Clearing old Snaps"
+    sudo snap remove --purge $(snap list --all | awk '/^disabled/{print $1}')
 
     LANG=C snap list --all | awk '/disabled/{print $1, $3}' |
       while read snapname revision; do
         sudo snap remove "$snapname" --revision="$revision"
       done
   fi
+}
+
+update_flatpak() {
+  echo "## Updating Flatpack..."
+  if command_exists flatpak; then
+    sudo flatpak update -y
+    sudo flatpak uninstall --unused -y
+  fi
+}
+
+update_bun() {
+  echo "## Updating Bun..."
+  if command_exists bun; then
+    bun upgrade
+  fi
+}
+
+clean_logs() {
+  echo "## Cleaning logs using journalctl..."
+  sudo journalctl --vacuum-time=3d
 }
 
 update_vscode_ext() {
@@ -230,6 +257,7 @@ update() {
     echo "## Updating npm..."
     npm install -g npm
     npx npm-check --global --update-all
+    npm cache clean --force
   fi
 
   if command_exists yarn; then
