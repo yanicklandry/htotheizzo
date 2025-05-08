@@ -152,12 +152,7 @@ update_homebrew() {
 update_homebrew_with_casks() {
   brew update
   brew upgrade
-  OUTDATED_CASKS=$(brew outdated --cask)
-  if test -z "$OUTDATED_CASKS"; then
-    echo "no brew casks to update"
-  else
-    brew reinstall --cask $OUTDATED_CASKS
-  fi
+  brew upgrade --cask --greedy
   brew cleanup -s
 }
 
