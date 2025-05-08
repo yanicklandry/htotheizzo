@@ -151,6 +151,7 @@ update_homebrew() {
 
 update_homebrew_with_casks() {
   brew update
+  brew outdated --greedy
   brew upgrade
   brew upgrade --cask --greedy
   brew cleanup -s
