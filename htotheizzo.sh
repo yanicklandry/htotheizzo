@@ -190,6 +190,8 @@ update() {
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Hey there Mac user. At least it's not Windows."
 
+    sudo echo "Kept sudo."
+
     # Install Apple Command Line Tools (necessary after an update)
     if command_exists xcode-select; then
       echo "## Updating Apple Command Line Tools..."
@@ -201,6 +203,15 @@ update() {
       echo "## Updating Home Brew..."
       update_homebrew_with_casks
     fi
+
+    sudo echo "Kept sudo."
+
+    if command_exists softwareupdate; then
+      echo "## Updating Apple Software Update"
+      softwareupdate --install --all
+    fi
+
+    sudo echo "Kept sudo."
 
     # Update Mac App Store using : https://github.com/argon/mas
     if command_exists mas; then
@@ -229,6 +240,8 @@ update() {
     echo "We don't have update functions for OS: ${OSTYPE}"
     echo "Moving on..."
   fi
+
+  sudo echo "Kept sudo."
 
   update_itself
 
@@ -294,10 +307,7 @@ update() {
     rvm cleanup all
   fi
 
-  if command_exists softwareupdate; then
-    echo "## Updating Apple Software Update"
-    softwareupdate --install --all
-  fi
+  sudo echo "Kept sudo."
 
   if command_exists gem; then
     echo "## Updating ruby gems..."
