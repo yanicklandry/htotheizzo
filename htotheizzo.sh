@@ -1,26 +1,35 @@
 #!/bin/bash
 
+set -euo pipefail
+
 THISUSER=$(who am i | awk '{print $1}')
 
-echo "Running as $THISUSER."
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >&2
+}
+
+log "Running as $THISUSER."
 
 help() {
   echo "htotheizzo - a simple script that makes updating/upgrading homebrew or apt-get, gems, pip packages, and node packages so much easier"
 }
 
 command_exists() {
+  local cmd="$1"
+  local varname="skip_${cmd}"
+  local skip_var="${!varname:-}"
 
-  varname="skip_$@"
-  SKIP_CMD_VAR="${!varname}"
-
-  if [[ -z "${SKIP_CMD_VAR}" ]]; then
-    echo ""
-  else
-    echo "Skipped $@"
+  if [[ -n "${skip_var}" ]]; then
+    log "Skipped $cmd"
     return 1
   fi
 
-  command -v "$@" >/dev/null 2>&1
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    log "Command $cmd not found"
+    return 1
+  fi
+
+  return 0
 }
 
 replace_sysd() {
@@ -31,130 +40,116 @@ replace_sysd() {
   fi
 }
 
-update_docker() {
-  local docker_dir="/home/$THISUSER/Repos/docker/docker"
-
-  if [[ -d $docker_dir ]]; then
-    # stop docker
-    supervisorctl stop docker
-
-    cd $docker_dir
-
-    # Include contributed completions
-    mkdir -p /etc/bash_completion.d
-    cp contrib/completion/bash/docker /etc/bash_completion.d/
-
-    # Include contributed man pages
-    docs/man/md2man-all.sh -q
-    local manRoot="/usr/share/man"
-    mkdir -p "$manRoot"
-    for manDir in docs/man/man?; do
-      local manBase="$(basename "$manDir")" # "man1"
-      for manFile in "$manDir"/*; do
-        local manName="$(basename "$manFile")" # "docker-build.1"
-        mkdir -p "$manRoot/$manBase"
-        gzip -c "$manFile" >"$manRoot/$manBase/$manName.gz"
-      done
-    done
-
-    # move vim syntax highlighting
-    if [[ -d /home/$THISUSER/.vim/bundle/Dockerfile ]]; then
-      rm -rf /home/$THISUSER/.vim/bundle/Dockerfile
-    fi
-    yes | cp -rf contrib/syntax/vim /home/$THISUSER/.vim/bundle/Dockerfile
-    chown -R $THISUSER /home/$THISUSER/.vim/bundle/Dockerfile
-
-    # get the binary
-    curl https://master.dockerproject.com/linux/amd64/docker >/usr/bin/docker
-
-    # copy systemd config
-    # replace_sysd
-
-    supervisorctl start docker
-  fi
-
-}
 
 update_linux() {
-  sudo echo "Got sudo."
+  log "Starting Linux updates..."
+  
+  # Test sudo access
+  if ! sudo -n true 2>/dev/null; then
+    log "Requesting sudo access..."
+    sudo echo "Got sudo."
+  fi
+  
   update_apt
   update_docker
   update_snap
   update_flatpak
   update_bun
   clean_logs
+  
   if command_exists brew; then
-    echo "## Updating Home Brew..."
+    log "Updating Homebrew..."
     update_homebrew
   fi
 }
 
 update_apt() {
+  log "Updating apt packages..."
   export DEBIAN_FRONTEND=noninteractive
-  sudo apt -y update
-  sudo apt -y upgrade
-  sudo apt -y dist-upgrade
-  sudo apt -y autoremove
-  sudo apt -y autoclean
-  sudo apt -y clean
-  sudo apt-get purge -y
-  sudo apt-get autoremove --purge -y
-  sudo rm -rf /var/lib/apt/lists/*
+  
+  local apt_commands=(
+    "sudo apt -y update"
+    "sudo apt -y upgrade"
+    "sudo apt -y dist-upgrade"
+    "sudo apt -y autoremove"
+    "sudo apt -y autoclean"
+    "sudo apt -y clean"
+    "sudo apt-get autoremove --purge -y"
+  )
+  
+  for cmd in "${apt_commands[@]}"; do
+    if ! eval "$cmd"; then
+      log "Warning: '$cmd' failed"
+    fi
+  done
+  
+  # Clean up package lists
+  sudo rm -rf /var/lib/apt/lists/* 2>/dev/null || true
 }
 
 update_snap() {
   if command_exists snap; then
-    echo "## Updating Snap packages..."
-    sudo snap refresh
-    echo "## Clearing old Snaps"
-    sudo snap remove --purge $(snap list --all | awk '/^disabled/{print $1}')
-
-    LANG=C snap list --all | awk '/disabled/{print $1, $3}' |
-      while read snapname revision; do
-        sudo snap remove "$snapname" --revision="$revision"
+    log "Updating Snap packages..."
+    sudo snap refresh || log "Warning: snap refresh failed"
+    
+    log "Clearing old Snaps"
+    # Safer approach to removing disabled snaps
+    local disabled_snaps
+    disabled_snaps=$(snap list --all | awk '/disabled/{print $1, $3}' | sort -u)
+    
+    if [[ -n "$disabled_snaps" ]]; then
+      echo "$disabled_snaps" | while read -r snapname revision; do
+        if [[ -n "$snapname" && -n "$revision" ]]; then
+          sudo snap remove "$snapname" --revision="$revision" || log "Warning: failed to remove $snapname revision $revision"
+        fi
       done
+    fi
   fi
 }
 
 update_flatpak() {
-  echo "## Updating Flatpack..."
   if command_exists flatpak; then
-    sudo flatpak update -y
-    sudo flatpak uninstall --unused -y
+    log "Updating Flatpak packages..."
+    sudo flatpak update -y || log "Warning: flatpak update failed"
+    sudo flatpak uninstall --unused -y || log "Warning: flatpak cleanup failed"
   fi
 }
 
 update_bun() {
-  echo "## Updating Bun..."
   if command_exists bun; then
-    bun upgrade
+    log "Updating Bun..."
+    bun upgrade || log "Warning: bun upgrade failed"
   fi
 }
 
 clean_logs() {
-  echo "## Cleaning logs using journalctl..."
-  sudo journalctl --vacuum-time=3d
+  if command_exists journalctl; then
+    log "Cleaning logs using journalctl..."
+    sudo journalctl --vacuum-time=3d || log "Warning: journalctl cleanup failed"
+  fi
 }
 
 update_vscode_ext() {
   if command_exists code; then
-    echo "## Updating VS Code Extensions..."
-    code --update-extensions
+    log "Updating VS Code Extensions..."
+    code --update-extensions || log "Warning: VS Code extension update failed"
   fi
 }
 
 update_homebrew() {
-  brew update
-  brew upgrade
-  brew cleanup -s
+  log "Updating Homebrew..."
+  brew update || log "Warning: brew update failed"
+  brew upgrade || log "Warning: brew upgrade failed"
+  brew cleanup -s || log "Warning: brew cleanup failed"
 }
 
 update_homebrew_with_casks() {
-  brew update
-  brew outdated --greedy
-  brew upgrade
-  brew upgrade --cask --greedy
-  brew cleanup -s
+  log "Updating Homebrew with casks..."
+  brew update || log "Warning: brew update failed"
+  brew outdated --greedy || log "Warning: brew outdated failed"
+  brew upgrade || log "Warning: brew upgrade failed"
+  brew upgrade --cask --greedy || log "Warning: brew cask upgrade failed"
+  brew cleanup -s || log "Warning: brew cleanup failed"
 }
 
 update_itself() {
@@ -188,53 +183,56 @@ update() {
     update_linux
 
   elif [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "Hey there Mac user. At least it's not Windows."
+    log "Hey there Mac user. At least it's not Windows."
 
-    sudo echo "Kept sudo."
+    # Test sudo access
+    if ! sudo -n true 2>/dev/null; then
+      log "Requesting sudo access..."
+      sudo echo "Got sudo."
+    fi
 
     # Install Apple Command Line Tools (necessary after an update)
     if command_exists xcode-select; then
-      echo "## Updating Apple Command Line Tools..."
-      sudo xcodebuild -license accept
-      xcode-select --install
+      log "Updating Apple Command Line Tools..."
+      sudo xcodebuild -license accept 2>/dev/null || log "Warning: xcodebuild license accept failed"
+      xcode-select --install 2>/dev/null || log "Command line tools already installed or installation failed"
     fi
 
     if command_exists brew; then
-      echo "## Updating Home Brew..."
+      log "Updating Homebrew..."
       update_homebrew_with_casks
     fi
 
-    sudo echo "Kept sudo."
-
     if command_exists softwareupdate; then
-      echo "## Updating Apple Software Update"
-      softwareupdate --install --all
+      log "Updating Apple Software Update"
+      softwareupdate --install --all || log "Warning: softwareupdate failed"
     fi
-
-    sudo echo "Kept sudo."
 
     # Update Mac App Store using : https://github.com/argon/mas
     if command_exists mas; then
-      echo "## Updating Mac App Store..."
-      mas upgrade
+      log "Updating Mac App Store..."
+      mas upgrade || log "Warning: mas upgrade failed"
     fi
 
     # Update Microsoft Office
-    if [ -d /Library/Application\ Support/Microsoft/MAU2.0/Microsoft\ AutoUpdate.app ]; then
-      open /Library/Application\ Support/Microsoft/MAU2.0/Microsoft\ AutoUpdate.app
+    if [ -d "/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app" ]; then
+      log "Opening Microsoft AutoUpdate..."
+      open "/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app" || log "Warning: failed to open Microsoft AutoUpdate"
     fi
 
-  elif [[ is_raspberry ]]; then
-    echo "Hello Raspberry Pi."
+  elif [[ -n "$is_raspberry" ]]; then
+    log "Hello Raspberry Pi."
     # on linux, make sure they are the super user
     if [ "$UID" -ne 0 ]; then
-      echo "Please run as root"
+      log "Please run as root"
       exit 1
     fi
 
     # update
     update_linux
-    rpi-update
+    if command_exists rpi-update; then
+      rpi-update || log "Warning: rpi-update failed"
+    fi
 
   else
     echo "We don't have update functions for OS: ${OSTYPE}"
@@ -248,30 +246,34 @@ update() {
   update_vscode_ext
 
   if command_exists kav; then
-    echo "## Updating Kaspersky Security Tools..."
-    kav update
+    log "Updating Kaspersky Security Tools..."
+    kav update || log "Warning: kav update failed"
   fi
 
   if command_exists omz; then
-    echo "## Updating Oh My ZSH..."
-    omz update
+    log "Updating Oh My ZSH..."
+    omz update || log "Warning: omz update failed"
   fi
 
   if command_exists apm; then
-    echo "## Updating Atom packages (apm)..."
-    apm update --no-confirm
+    log "Updating Atom packages (apm)..."
+    apm update --no-confirm || log "Warning: apm update failed"
   fi
 
   if command_exists npm; then
-    echo "## Updating npm..."
-    npm install -g npm
-    npx npm-check --global --update-all
-    npm cache clean --force
+    log "Updating npm..."
+    npm install -g npm || log "Warning: npm self-update failed"
+    npx npm-check --global --update-all || log "Warning: npm global update failed"
+    npm cache clean --force || log "Warning: npm cache clean failed"
   fi
 
   if command_exists yarn; then
-    echo "## Updating yarn..."
-    curl -o- -L https://yarnpkg.com/install.sh | bash
+    log "Updating yarn..."
+    if command_exists npm; then
+      npm install -g yarn || log "Warning: yarn update via npm failed"
+    else
+      log "Warning: Skipping yarn update - no safe update method available"
+    fi
   fi
 
   if command_exists nvm; then
@@ -281,18 +283,30 @@ update() {
   fi
 
   if command_exists pip; then
-    echo "Updating pip tool itself"
+    log "Updating pip packages..."
     export PIP_REQUIRE_VIRTUALENV=false
-    pip install --upgrade pip --user
-    pip freeze --user | cut -d'=' -f1 | xargs -n1 pip install -U
+    pip install --upgrade pip --user || log "Warning: pip self-update failed"
+    
+    # Update user packages more safely
+    local pip_packages
+    pip_packages=$(pip freeze --user | cut -d'=' -f1 2>/dev/null || echo "")
+    if [[ -n "$pip_packages" ]]; then
+      echo "$pip_packages" | xargs -n1 pip install -U --user || log "Warning: pip package updates failed"
+    fi
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
   if command_exists pip3; then
-    # echo "Updating pip3 tool itself"
+    log "Updating pip3 packages..."
     export PIP_REQUIRE_VIRTUALENV=false
-    python3 -m pip install --upgrade pip --user
-    pip3 freeze --user | cut -d'=' -f1 | xargs -n1 pip3 install -U
+    python3 -m pip install --upgrade pip --user || log "Warning: pip3 self-update failed"
+    
+    # Update user packages more safely
+    local pip3_packages
+    pip3_packages=$(pip3 freeze --user | cut -d'=' -f1 2>/dev/null || echo "")
+    if [[ -n "$pip3_packages" ]]; then
+      echo "$pip3_packages" | xargs -n1 pip3 install -U --user || log "Warning: pip3 package updates failed"
+    fi
     export PIP_REQUIRE_VIRTUALENV=true
   fi
 
@@ -302,33 +316,33 @@ update() {
   fi
 
   if command_exists rvm; then
-    echo "## Updating rvm"
-    rvm get stable
-    rvm cleanup all
+    log "Updating rvm"
+    rvm get stable || log "Warning: rvm update failed"
+    rvm cleanup all || log "Warning: rvm cleanup failed"
   fi
 
   sudo echo "Kept sudo."
 
   if command_exists gem; then
-    echo "## Updating ruby gems..."
-    sudo gem update
-    sudo gem cleanup
+    log "Updating ruby gems..."
+    sudo gem update || log "Warning: gem update failed"
+    sudo gem cleanup || log "Warning: gem cleanup failed"
   fi
 
   if [[ -d tmp ]]; then
     rm -rf tmp
   fi
 
-  echo "htotheizzo is complete, you got 99 problems but updates ain't one"
+  log "htotheizzo is complete, you got 99 problems but updates ain't one"
 }
 
 main() {
-  local arg=$1
-  if [[ ! -z "$arg" ]]; then
+  local arg="${1:-}"
+  if [[ -n "$arg" ]]; then
     help
   else
     update
   fi
 }
 
-main $@
+main "$@"
