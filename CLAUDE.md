@@ -30,12 +30,35 @@ The script follows a modular approach with these key components:
 - `command_exists()` - Checks if commands exist and handles skipping via environment variables
 - `update_itself()` - Self-updating mechanism using git
 
+## Setup
+
+First time setup requires cloning and linking:
+
+```bash
+mkdir -p ~/bin
+git clone https://github.com/yanicklandry/htotheizzo.git ~/bin/.htotheizzo
+ln -s ~/bin/.htotheizzo/htotheizzo.sh ~/bin/htotheizzo.sh
+chmod a+x ~/bin/htotheizzo.sh
+echo 'export PATH="$PATH:$HOME/bin"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Linux-Specific Setup
+
+For Homebrew on Linux as root:
+
+```bash
+sudo echo "sudo -u $(whoami) $(which brew) \$@" > /usr/local/bin/brew
+sudo chmod a+x /usr/local/bin/brew
+```
+
 ## Common Commands
 
 ### Running the Update Script
 
 ```bash
-# Basic usage
+# Basic usage (recommended to have sudo authorization first)
+sudo ls  # enter password to cache sudo
 ./htotheizzo.sh
 
 # Skip specific package managers
@@ -48,14 +71,14 @@ sudo ./htotheizzo.sh
 ### Windows Updates
 
 ```bash
-# Windows-specific updates
+# Windows-specific updates (Chocolatey and Windows Update)
 ./update.sh
 ```
 
 ### macOS Disk Repair
 
 ```bash
-# Run disk repair utility
+# Simple disk repair utility
 ./repair.sh
 ```
 
@@ -64,7 +87,7 @@ sudo ./htotheizzo.sh
 The script supports skipping specific package managers using environment variables:
 
 - `skip_brew=1` - Skip Homebrew updates
-- `skip_mas=1` - Skip Mac App Store updates
+- `skip_mas=1` - Skip Mac App Store updates  
 - `skip_kav=1` - Skip Kaspersky updates
 - `skip_snap=1` - Skip Snap package updates
 - `skip_flatpak=1` - Skip Flatpak updates
@@ -88,7 +111,34 @@ The script supports skipping specific package managers using environment variabl
 
 ### Cross-Platform
 - Updates npm packages globally
-- Updates Python pip packages
+- Updates Python pip packages (with user flag for safety)
 - Updates Ruby gems
+- Updates yarn, nvm, rvm, pipenv
 - Updates VS Code extensions
+- Updates Oh My ZSH and Atom packages (if installed)
 - Self-updates the script via git
+
+## Error Handling
+
+The script includes comprehensive error handling:
+
+- All commands use `|| log "Warning: ..."` for graceful failure handling
+- Sudo access is tested before critical operations
+- Package manager existence is checked via `command_exists()` function  
+- Failed operations log warnings but don't stop the entire update process
+- Uses `set -euo pipefail` for strict error handling in main script
+
+## Technical Details
+
+### Docker Integration
+- Replaces systemd files from `~/.sysd/` if directory exists
+- Restarts Docker service after systemd updates
+
+### Security Considerations
+- Uses `export DEBIAN_FRONTEND=noninteractive` for non-interactive apt operations
+- Temporarily disables `PIP_REQUIRE_VIRTUALENV` during pip updates
+- Cleans package caches and removes unused packages
+- Safer snap removal by parsing disabled snaps first
+
+### Self-Update Mechanism
+The script can update itself by following symlinks to find its real location and performing a git pull in that directory.
