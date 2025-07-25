@@ -153,20 +153,54 @@ update_homebrew_with_casks() {
 }
 
 update_itself() {
-  echo "## Updating htotheizzo itself..."
-  OURPWD=$PWD
-  FILE="${BASH_SOURCE[0]}"
-  cd "$(dirname "$FILE")"
-  LINK=$(readlink "$(basename "$FILE")")
-  while [ "$LINK" ]; do
-    cd "$(dirname "$LINK")"
-    LINK=$(readlink "$(basename "$FILE")")
-  done
-  REALPATH="$PWD/$(basename "$FILE")"
-  cd "$OURPWD"
-  DIR="$(cd -P "$(dirname "$REALPATH")" && pwd)"
-  cd $DIR
-  git pull
+  log "Updating htotheizzo itself..."
+  local ourpwd="$PWD"
+  local file="${BASH_SOURCE[0]}"
+  local dir link realpath
+  
+  # Handle symlinks properly
+  if [[ -L "$file" ]]; then
+    log "Following symlink to find real script location..."
+    cd "$(dirname "$file")" || { log "Warning: failed to cd to script directory"; return 1; }
+    link=$(readlink "$(basename "$file")")
+    
+    while [[ -n "$link" ]]; do
+      if [[ "$link" = /* ]]; then
+        # Absolute path
+        cd "$(dirname "$link")" || { log "Warning: failed to follow symlink"; return 1; }
+      else
+        # Relative path
+        cd "$(dirname "$link")" || { log "Warning: failed to follow symlink"; return 1; }
+      fi
+      link=$(readlink "$(basename "$link")" 2>/dev/null || echo "")
+    done
+    
+    realpath="$PWD/$(basename "$file")"
+    cd "$ourpwd" || { log "Warning: failed to return to original directory"; return 1; }
+    dir="$(cd -P "$(dirname "$realpath")" && pwd)" || { log "Warning: failed to resolve real directory"; return 1; }
+  else
+    # Not a symlink, use direct path
+    dir="$(cd -P "$(dirname "$file")" && pwd)" || { log "Warning: failed to resolve script directory"; return 1; }
+  fi
+  
+  log "Changing to git repository directory: $dir"
+  cd "$dir" || { log "Warning: failed to change to git directory"; return 1; }
+  
+  # Check if we're in a git repository
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    log "Warning: not in a git repository, skipping self-update"
+    cd "$ourpwd" || true
+    return 1
+  fi
+  
+  log "Running git pull..."
+  if git pull; then
+    log "Successfully updated htotheizzo"
+  else
+    log "Warning: git pull failed"
+  fi
+  
+  cd "$ourpwd" || log "Warning: failed to return to original directory"
 }
 
 update() {
@@ -263,14 +297,44 @@ update() {
   if command_exists npm; then
     log "Updating npm..."
     npm install -g npm || log "Warning: npm self-update failed"
-    npx npm-check --global --update-all || log "Warning: npm global update failed"
+    
+    log "Updating npm global packages..."
+    # Get list of outdated global packages and update them
+    local outdated_packages
+    outdated_packages=$(npm outdated -g --depth=0 --json 2>/dev/null | jq -r 'keys[]' 2>/dev/null || echo "")
+    
+    if [[ -n "$outdated_packages" ]]; then
+      echo "$outdated_packages" | while read -r package; do
+        if [[ -n "$package" ]]; then
+          log "Updating global package: $package"
+          npm install -g "$package@latest" || log "Warning: failed to update $package"
+        fi
+      done
+    else
+      # Fallback method if jq is not available
+      log "Checking for outdated global packages..."
+      npm update -g || log "Warning: npm global update failed"
+    fi
+    
     npm cache clean --force || log "Warning: npm cache clean failed"
   fi
 
   if command_exists yarn; then
     log "Updating yarn..."
-    if command_exists npm; then
-      npm install -g yarn || log "Warning: yarn update via npm failed"
+    local yarn_path
+    yarn_path=$(which yarn)
+    
+    if [[ "$yarn_path" == *"homebrew"* ]]; then
+      log "Yarn installed via Homebrew, updating through brew"
+      # Yarn will be updated when Homebrew updates
+      log "Yarn will be updated with Homebrew packages"
+    elif [[ "$yarn_path" == *"corepack"* ]] || [[ -x "$(command -v corepack)" ]]; then
+      log "Yarn installed via corepack, enabling latest version"
+      corepack enable || log "Warning: corepack enable failed"
+      corepack prepare yarn@stable --activate || log "Warning: corepack yarn update failed"
+    elif command_exists npm; then
+      log "Attempting yarn update via npm..."
+      npm install -g yarn --force || log "Warning: yarn update via npm failed"
     else
       log "Warning: Skipping yarn update - no safe update method available"
     fi

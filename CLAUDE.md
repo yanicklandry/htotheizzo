@@ -68,6 +68,63 @@ skip_brew=1 skip_mas=1 ./htotheizzo.sh
 sudo ./htotheizzo.sh
 ```
 
+### Automated Scheduling with Cron
+
+For automatic updates, you can schedule htotheizzo using cron. Here are recommended schedules:
+
+#### Weekly Updates (Recommended)
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line for weekly updates on Sundays at 2 AM
+0 2 * * 0 /Users/$(whoami)/bin/htotheizzo.sh >> /Users/$(whoami)/logs/htotheizzo.log 2>&1
+```
+
+#### Other Scheduling Options
+```bash
+# Daily updates at 3 AM (for development machines)
+0 3 * * * /Users/$(whoami)/bin/htotheizzo.sh >> /Users/$(whoami)/logs/htotheizzo.log 2>&1
+
+# Bi-weekly updates (1st and 15th of each month at 2 AM)
+0 2 1,15 * * /Users/$(whoami)/bin/htotheizzo.sh >> /Users/$(whoami)/logs/htotheizzo.log 2>&1
+
+# Weekday updates at 1 AM (Monday-Friday)
+0 1 * * 1-5 /Users/$(whoami)/bin/htotheizzo.sh >> /Users/$(whoami)/logs/htotheizzo.log 2>&1
+```
+
+#### Setup Steps for Automated Updates
+
+1. **Create log directory:**
+   ```bash
+   mkdir -p ~/logs
+   ```
+
+2. **Test the script path:**
+   ```bash
+   which htotheizzo.sh
+   # Use the full path in your crontab
+   ```
+
+3. **Add to crontab:**
+   ```bash
+   crontab -e
+   # Add your chosen schedule from above
+   ```
+
+4. **Verify cron job:**
+   ```bash
+   crontab -l
+   ```
+
+#### Important Cron Considerations
+
+- **Sudo access**: For automated runs, consider configuring passwordless sudo for specific commands or run as root (not recommended)
+- **Environment variables**: Cron has a minimal environment, so use full paths
+- **Logging**: Always redirect output to a log file to troubleshoot issues
+- **Network connectivity**: Ensure the system has internet access during scheduled runs
+- **System load**: Schedule during low-usage periods (typically early morning)
+
 ### Windows Updates
 
 ```bash
