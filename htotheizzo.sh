@@ -152,6 +152,49 @@ update_homebrew_with_casks() {
   brew cleanup -s || log "Warning: brew cleanup failed"
 }
 
+mac_disk_maintenance() {
+  log "Performing disk maintenance..."
+  
+  # Verify disk integrity
+  sudo diskutil verifyVolume / || log "Warning: disk verification failed"
+  
+  # Clear memory caches
+  log "Clearing memory caches..."
+  sudo purge || log "Warning: memory purge failed"
+  
+  # Clear user caches
+  log "Clearing user caches..."
+  if [[ -d ~/Library/Caches ]]; then
+    local cache_size
+    cache_size=$(du -sh ~/Library/Caches 2>/dev/null | cut -f1 || echo "unknown")
+    log "User cache size: $cache_size"
+    find ~/Library/Caches -type f -delete 2>/dev/null || log "Warning: cache cleanup failed"
+  fi
+}
+
+mac_system_maintenance() {
+  log "Running system maintenance scripts..."
+  
+  # Run periodic maintenance scripts
+  sudo periodic daily weekly monthly || log "Warning: periodic maintenance failed"
+  
+  # Flush DNS cache
+  log "Flushing DNS cache..."
+  sudo dscacheutil -flushcache || log "Warning: DNS cache flush failed"
+  sudo killall -HUP mDNSResponder 2>/dev/null || log "Warning: mDNSResponder restart failed"
+}
+
+mac_spotlight_rebuild() {
+  log "Rebuilding Spotlight index..."
+  sudo mdutil -E / || log "Warning: Spotlight rebuild failed"
+}
+
+mac_reset_launchpad() {
+  log "Resetting Launchpad..."
+  defaults write com.apple.dock ResetLaunchPad -bool true
+  killall Dock 2>/dev/null || log "Warning: Dock restart failed"
+}
+
 update_itself() {
   log "Updating htotheizzo itself..."
   local ourpwd="$PWD"
@@ -252,6 +295,19 @@ update() {
     if [ -d "/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app" ]; then
       log "Opening Microsoft AutoUpdate..."
       open "/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app" || log "Warning: failed to open Microsoft AutoUpdate"
+    fi
+
+    # Run macOS maintenance tasks
+    mac_disk_maintenance
+    mac_system_maintenance
+    
+    # Optional maintenance (can be skipped with environment variables)
+    if [[ -z "${skip_spotlight:-}" ]]; then
+      mac_spotlight_rebuild
+    fi
+    
+    if [[ -z "${skip_launchpad:-}" ]]; then
+      mac_reset_launchpad
     fi
 
   elif [[ -n "$is_raspberry" ]]; then

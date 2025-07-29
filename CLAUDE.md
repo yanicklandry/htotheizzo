@@ -149,6 +149,8 @@ The script supports skipping specific package managers using environment variabl
 - `skip_snap=1` - Skip Snap package updates
 - `skip_flatpak=1` - Skip Flatpak updates
 - `skip_bun=1` - Skip Bun updates
+- `skip_spotlight=1` - Skip Spotlight index rebuild (macOS only)
+- `skip_launchpad=1` - Skip Launchpad reset (macOS only)
 
 ## Platform-Specific Behavior
 
@@ -158,6 +160,13 @@ The script supports skipping specific package managers using environment variabl
 - Installs/updates Apple Command Line Tools
 - Runs macOS Software Update
 - Updates Microsoft Office via AutoUpdate
+- **New Maintenance Tasks:**
+  - Verifies disk integrity using `diskutil`
+  - Clears memory and user caches
+  - Runs system periodic maintenance scripts
+  - Flushes DNS cache
+  - Rebuilds Spotlight index (optional, can skip with `skip_spotlight=1`)
+  - Resets Launchpad layout (optional, can skip with `skip_launchpad=1`)
 
 ### Linux
 - Updates apt packages with full cleanup
