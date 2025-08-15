@@ -1,0 +1,16 @@
+{
+  "name": "htotheizzo-gui",
+  "version": "1.0.0",
+  "description": "GUI for htotheizzo system update automation",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "keywords": ["htotheizzo", "updates", "automation", "gui"],
+  "author": "htotheizzo",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0"
+  }
+}
