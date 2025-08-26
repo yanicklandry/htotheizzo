@@ -247,6 +247,12 @@ update_itself() {
 }
 
 update() {
+  # Request administrator privileges with native dialog (includes Touch ID)
+  echo "Requesting administrator privileges..."
+  if ! sudo -v; then
+    log "Authentication failed. Exiting."
+    exit 1
+  fi
 
   echo "htotheizzo is running the update functions"
 

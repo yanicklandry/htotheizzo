@@ -8,9 +8,11 @@ htotheizzo is a system update automation script that updates multiple package ma
 
 ## Architecture
 
-The codebase consists of three main shell scripts:
+The codebase consists of shell scripts and a modern GUI:
 
 - `htotheizzo.sh` - Main update script with OS detection and comprehensive package manager updates
+- `htotheizzo-gui.sh` - Electron GUI launcher script
+- `gui/` - Electron-based GUI application with modern interface
 - `update.sh` - Windows-specific update script using Chocolatey and Windows Update
 - `repair.sh` - macOS disk repair utility
 
@@ -18,10 +20,11 @@ The codebase consists of three main shell scripts:
 
 The script follows a modular approach with these key components:
 
-1. **OS Detection**: Detects Linux, macOS, or Raspberry Pi environments
-2. **Command Skipping**: Environment variable-based command skipping (e.g., `skip_brew=1`)
-3. **Package Manager Updates**: Separate functions for each package manager
-4. **Self-Update**: Built-in git pull functionality to update the script itself
+1. **Native Authentication**: Uses `sudo -v` for native macOS authentication with Touch ID support
+2. **OS Detection**: Detects Linux, macOS, or Raspberry Pi environments
+3. **Command Skipping**: Environment variable-based command skipping (e.g., `skip_brew=1`)
+4. **Package Manager Updates**: Separate functions for each package manager
+5. **Self-Update**: Built-in git pull functionality to update the script itself
 
 ### Key Functions
 
@@ -208,3 +211,58 @@ The script includes comprehensive error handling:
 
 ### Self-Update Mechanism
 The script can update itself by following symlinks to find its real location and performing a git pull in that directory.
+
+## GUI Application
+
+The project includes a modern Electron-based GUI that provides an intuitive interface for running system updates.
+
+### GUI Features
+- **Native Authentication**: Integrates with macOS native authentication dialogs including Touch ID
+- **Package Selection**: Checkboxes for each package manager (Homebrew, Mac App Store, Snap, etc.)
+- **Real-time Output**: Live display of update progress and logs
+- **Error Handling**: Clear error messages and status indicators
+- **Modern Interface**: Clean, native-looking macOS design
+
+### GUI Architecture
+- `gui/main.js` - Electron main process handling authentication and script execution
+- `gui/renderer.js` - Frontend logic for UI interactions and real-time updates
+- `gui/index.html` - Modern HTML interface with responsive design
+- `gui/package.json` - Node.js dependencies and Electron configuration
+
+### Running the GUI
+
+```bash
+# Launch GUI via terminal command
+htotheizzo-gui
+
+# Or run directly
+/Users/$(whoami)/bin/.htotheizzo/htotheizzo-gui.sh
+
+# Or from the gui directory
+cd ~/bin/.htotheizzo/gui && npm start
+```
+
+### GUI Setup
+
+The GUI requires Node.js and is automatically set up when first launched:
+
+```bash
+# The GUI launcher automatically:
+# 1. Checks for Node.js and npm
+# 2. Installs dependencies if needed
+# 3. Launches the Electron application
+```
+
+### GUI Authentication
+
+The GUI uses the same native authentication as the command-line script:
+- Prompts for administrator privileges using macOS native dialog
+- Supports Touch ID authentication when available
+- Handles authentication failures gracefully with clear error messages
+
+### Package Manager Selection
+
+The GUI provides intuitive checkboxes for all supported package managers:
+- All options are **enabled by default** 
+- **Uncheck** items you want to **skip**
+- Supports all skip variables: `skip_brew`, `skip_mas`, `skip_spotlight`, etc.
