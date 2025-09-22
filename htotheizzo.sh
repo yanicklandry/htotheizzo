@@ -8,6 +8,26 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >&2
 }
 
+# Standardized error handling helper
+run_with_fallback() {
+  local cmd="$1"
+  local description="$2"
+  local silent="${3:-false}"
+  
+  if [[ "$silent" == "true" ]]; then
+    if ! eval "$cmd" >/dev/null 2>&1; then
+      log "Warning: $description failed"
+      return 1
+    fi
+  else
+    if ! eval "$cmd"; then
+      log "Warning: $description failed"
+      return 1
+    fi
+  fi
+  return 0
+}
+
 log "Running as $THISUSER."
 
 help() {
@@ -51,7 +71,6 @@ update_linux() {
   fi
   
   update_apt
-  update_docker
   update_snap
   update_flatpak
   update_bun
@@ -67,24 +86,17 @@ update_apt() {
   log "Updating apt packages..."
   export DEBIAN_FRONTEND=noninteractive
   
-  local apt_commands=(
-    "sudo apt -y update"
-    "sudo apt -y upgrade"
-    "sudo apt -y dist-upgrade"
-    "sudo apt -y autoremove"
-    "sudo apt -y autoclean"
-    "sudo apt -y clean"
-    "sudo apt-get autoremove --purge -y"
-  )
-  
-  for cmd in "${apt_commands[@]}"; do
-    if ! eval "$cmd"; then
-      log "Warning: '$cmd' failed"
-    fi
-  done
+  # Execute apt commands directly instead of using eval
+  sudo apt -y update || log "Warning: 'apt update' failed"
+  sudo apt -y upgrade || log "Warning: 'apt upgrade' failed"
+  sudo apt -y dist-upgrade || log "Warning: 'apt dist-upgrade' failed"
+  sudo apt -y autoremove || log "Warning: 'apt autoremove' failed"
+  sudo apt -y autoclean || log "Warning: 'apt autoclean' failed"
+  sudo apt -y clean || log "Warning: 'apt clean' failed"
+  sudo apt-get autoremove --purge -y || log "Warning: 'apt-get autoremove --purge' failed"
   
   # Clean up package lists
-  sudo rm -rf /var/lib/apt/lists/* 2>/dev/null || true
+  run_with_fallback "sudo rm -rf /var/lib/apt/lists/*" "package lists cleanup" true
 }
 
 update_snap() {
@@ -95,7 +107,10 @@ update_snap() {
     log "Clearing old Snaps"
     # Safer approach to removing disabled snaps
     local disabled_snaps
-    disabled_snaps=$(snap list --all | awk '/disabled/{print $1, $3}' | sort -u)
+    if ! disabled_snaps=$(snap list --all 2>/dev/null | awk '/disabled/{print $1, $3}' | sort -u); then
+      log "Warning: Failed to get disabled snaps list"
+      return 1
+    fi
     
     if [[ -n "$disabled_snaps" ]]; then
       echo "$disabled_snaps" | while read -r snapname revision; do
@@ -137,20 +152,25 @@ update_vscode_ext() {
 }
 
 update_homebrew() {
-  log "Updating Homebrew..."
+  local with_casks="${1:-false}"
+  
+  if [[ "$with_casks" == "true" ]]; then
+    log "Updating Homebrew with casks..."
+  else
+    log "Updating Homebrew..."
+  fi
+  
   brew update || log "Warning: brew update failed"
+  
+  if [[ "$with_casks" == "true" ]]; then
+    brew outdated --greedy || log "Warning: brew outdated failed"
+    brew upgrade --cask --greedy || log "Warning: brew cask upgrade failed"
+  fi
+  
   brew upgrade || log "Warning: brew upgrade failed"
   brew cleanup -s || log "Warning: brew cleanup failed"
 }
 
-update_homebrew_with_casks() {
-  log "Updating Homebrew with casks..."
-  brew update || log "Warning: brew update failed"
-  brew outdated --greedy || log "Warning: brew outdated failed"
-  brew upgrade || log "Warning: brew upgrade failed"
-  brew upgrade --cask --greedy || log "Warning: brew cask upgrade failed"
-  brew cleanup -s || log "Warning: brew cleanup failed"
-}
 
 mac_disk_maintenance() {
   log "Performing disk maintenance..."
@@ -166,22 +186,33 @@ mac_disk_maintenance() {
   log "Clearing user caches..."
   if [[ -d ~/Library/Caches ]]; then
     local cache_size
-    cache_size=$(du -sh ~/Library/Caches 2>/dev/null | cut -f1 || echo "unknown")
+    if ! cache_size=$(du -sh ~/Library/Caches 2>/dev/null | cut -f1); then
+      cache_size="unknown"
+    fi
     log "User cache size: $cache_size"
-    find ~/Library/Caches -type f -delete 2>/dev/null || log "Warning: cache cleanup failed"
+    # More selective cache cleanup - only clear specific safe directories
+    find ~/Library/Caches -name "*.tmp" -type f -delete 2>/dev/null || true
+    find ~/Library/Caches -name "*.cache" -type f -delete 2>/dev/null || true
+    find ~/Library/Caches -name "*.log" -type f -delete 2>/dev/null || true
   fi
 }
 
 mac_system_maintenance() {
   log "Running system maintenance scripts..."
   
-  # Run periodic maintenance scripts
-  sudo periodic daily weekly monthly || log "Warning: periodic maintenance failed"
+  # Run periodic maintenance scripts (macOS specific)
+  if command -v periodic >/dev/null 2>&1; then
+    sudo periodic daily weekly monthly || log "Warning: periodic maintenance failed"
+  else
+    # Alternative: run maintenance tasks manually on newer macOS
+    log "Running manual maintenance tasks..."
+    sudo /usr/libexec/locate.updatedb || log "Warning: locate database update failed"
+  fi
   
   # Flush DNS cache
   log "Flushing DNS cache..."
   sudo dscacheutil -flushcache || log "Warning: DNS cache flush failed"
-  sudo killall -HUP mDNSResponder 2>/dev/null || log "Warning: mDNSResponder restart failed"
+  run_with_fallback "sudo killall -HUP mDNSResponder" "mDNSResponder restart" true
 }
 
 mac_spotlight_rebuild() {
@@ -192,7 +223,7 @@ mac_spotlight_rebuild() {
 mac_reset_launchpad() {
   log "Resetting Launchpad..."
   defaults write com.apple.dock ResetLaunchPad -bool true
-  killall Dock 2>/dev/null || log "Warning: Dock restart failed"
+  run_with_fallback "killall Dock" "Dock restart" true
 }
 
 update_itself() {
@@ -282,8 +313,7 @@ update() {
     fi
 
     if command_exists brew; then
-      log "Updating Homebrew..."
-      update_homebrew_with_casks
+      update_homebrew true
     fi
 
     if command_exists softwareupdate; then

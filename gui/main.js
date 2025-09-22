@@ -9,12 +9,21 @@ function createWindow() {
     width: 800,
     height: 600,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 
   mainWindow.loadFile('index.html');
+  
+  // Open DevTools in development mode
+  if (process.argv.includes('--dev')) {
+    mainWindow.webContents.openDevTools();
+  }
+  
+  // Clear cache to avoid stale code issues
+  mainWindow.webContents.session.clearCache();
 }
 
 // Request sudo authentication using native dialog with Touch ID support
