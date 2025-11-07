@@ -26,9 +26,19 @@
         }
         .options {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 15px;
             margin-bottom: 30px;
+        }
+        .category {
+            margin-bottom: 25px;
+        }
+        .category h3 {
+            color: #555;
+            font-size: 14px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #007AFF;
         }
         .option {
             display: flex;
@@ -131,42 +141,296 @@
             Ready to update your system
         </div>
 
-        <div class="options">
-            <div class="option">
-                <input type="checkbox" id="skip_brew" checked />
-                <label for="skip_brew">Homebrew</label>
+        <!-- System Package Managers -->
+        <div class="category">
+            <h3>System Packages</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_brew" checked />
+                    <label for="skip_brew">Homebrew</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_port" checked />
+                    <label for="skip_port">MacPorts</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_mas" checked />
+                    <label for="skip_mas">Mac App Store</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_snap" checked />
+                    <label for="skip_snap">Snap</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_flatpak" checked />
+                    <label for="skip_flatpak">Flatpak</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_nix-env" checked />
+                    <label for="skip_nix-env">Nix</label>
+                </div>
             </div>
-            <div class="option">
-                <input type="checkbox" id="skip_mas" checked />
-                <label for="skip_mas">Mac App Store</label>
+        </div>
+
+        <!-- JavaScript/Node.js -->
+        <div class="category">
+            <h3>JavaScript/Node.js</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_npm" checked />
+                    <label for="skip_npm">npm</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_yarn" checked />
+                    <label for="skip_yarn">yarn</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_pnpm" checked />
+                    <label for="skip_pnpm">pnpm</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_bun" checked />
+                    <label for="skip_bun">Bun</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_deno" checked />
+                    <label for="skip_deno">Deno</label>
+                </div>
             </div>
-            <div class="option">
-                <input type="checkbox" id="skip_kav" checked />
-                <label for="skip_kav">Kaspersky</label>
+        </div>
+
+        <!-- Python -->
+        <div class="category">
+            <h3>Python</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_pip" checked />
+                    <label for="skip_pip">pip</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_pip3" checked />
+                    <label for="skip_pip3">pip3</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_pipenv" checked />
+                    <label for="skip_pipenv">pipenv</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_poetry" checked />
+                    <label for="skip_poetry">Poetry</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_pdm" checked />
+                    <label for="skip_pdm">PDM</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_uv" checked />
+                    <label for="skip_uv">uv</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_conda" checked />
+                    <label for="skip_conda">Conda</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_mamba" checked />
+                    <label for="skip_mamba">Mamba</label>
+                </div>
             </div>
-            <div class="option">
-                <input type="checkbox" id="skip_snap" checked />
-                <label for="skip_snap">Snap</label>
+        </div>
+
+        <!-- Ruby -->
+        <div class="category">
+            <h3>Ruby</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_gem" checked />
+                    <label for="skip_gem">gem</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_rvm" checked />
+                    <label for="skip_rvm">rvm</label>
+                </div>
             </div>
-            <div class="option">
-                <input type="checkbox" id="skip_flatpak" checked />
-                <label for="skip_flatpak">Flatpak</label>
+        </div>
+
+        <!-- Other Languages -->
+        <div class="category">
+            <h3>Other Languages</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_rustup" checked />
+                    <label for="skip_rustup">Rust (rustup)</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_cargo" checked />
+                    <label for="skip_cargo">Cargo</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_go" checked />
+                    <label for="skip_go">Go</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_composer" checked />
+                    <label for="skip_composer">Composer (PHP)</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_cpan" checked />
+                    <label for="skip_cpan">CPAN (Perl)</label>
+                </div>
             </div>
-            <div class="option">
-                <input type="checkbox" id="skip_bun" checked />
-                <label for="skip_bun">Bun</label>
+        </div>
+
+        <!-- Version Managers -->
+        <div class="category">
+            <h3>Version Managers</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_asdf" checked />
+                    <label for="skip_asdf">asdf</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_mise" checked />
+                    <label for="skip_mise">mise</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_nvm" checked />
+                    <label for="skip_nvm">nvm</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_nodenv" checked />
+                    <label for="skip_nodenv">nodenv</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_pyenv" checked />
+                    <label for="skip_pyenv">pyenv</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_rbenv" checked />
+                    <label for="skip_rbenv">rbenv</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_goenv" checked />
+                    <label for="skip_goenv">goenv</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_jenv" checked />
+                    <label for="skip_jenv">jenv</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_sdk" checked />
+                    <label for="skip_sdk">SDKMAN</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_tfenv" checked />
+                    <label for="skip_tfenv">tfenv</label>
+                </div>
             </div>
-            <div class="option">
-                <input type="checkbox" id="skip_spotlight" checked />
-                <label for="skip_spotlight">Spotlight</label>
+        </div>
+
+        <!-- Cloud & Infrastructure -->
+        <div class="category">
+            <h3>Cloud & Infrastructure</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_docker" checked />
+                    <label for="skip_docker">Docker</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_helm" checked />
+                    <label for="skip_helm">Helm</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_kubectl" checked />
+                    <label for="skip_kubectl">kubectl</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_gh" checked />
+                    <label for="skip_gh">GitHub CLI</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_gcloud" checked />
+                    <label for="skip_gcloud">Google Cloud SDK</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_aws" checked />
+                    <label for="skip_aws">AWS CLI</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_az" checked />
+                    <label for="skip_az">Azure CLI</label>
+                </div>
             </div>
-            <div class="option">
-                <input type="checkbox" id="skip_launchpad" checked />
-                <label for="skip_launchpad">Launchpad</label>
+        </div>
+
+        <!-- Development Tools -->
+        <div class="category">
+            <h3>Development Tools</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_code" checked />
+                    <label for="skip_code">VS Code</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_pod" checked />
+                    <label for="skip_pod">CocoaPods</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_flutter" checked />
+                    <label for="skip_flutter">Flutter</label>
+                </div>
             </div>
-            <div class="option">
-                <input type="checkbox" id="skip_gem" checked />
-                <label for="skip_gem">Ruby Gems</label>
+        </div>
+
+        <!-- Shell & Terminal -->
+        <div class="category">
+            <h3>Shell & Terminal</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_omz" checked />
+                    <label for="skip_omz">Oh My Zsh</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_antibody" checked />
+                    <label for="skip_antibody">Antibody</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_fisher" checked />
+                    <label for="skip_fisher">Fisher</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_starship" checked />
+                    <label for="skip_starship">Starship</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- macOS Maintenance -->
+        <div class="category">
+            <h3>macOS Maintenance</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_spotlight" checked />
+                    <label for="skip_spotlight">Spotlight Rebuild</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_launchpad" checked />
+                    <label for="skip_launchpad">Launchpad Reset</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Other -->
+        <div class="category">
+            <h3>Other</h3>
+            <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_kav" checked />
+                    <label for="skip_kav">Kaspersky</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_apm" checked />
+                    <label for="skip_apm">Atom (apm)</label>
+                </div>
             </div>
         </div>
 
