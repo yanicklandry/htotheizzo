@@ -51,6 +51,16 @@
         .option input[type="checkbox"] {
             margin-right: 10px;
         }
+        .option.undetected {
+            opacity: 0.5;
+        }
+        .option.undetected input[type="checkbox"] {
+            cursor: not-allowed;
+        }
+        .option.undetected label {
+            color: #999;
+            text-decoration: line-through;
+        }
         .buttons {
             display: flex;
             gap: 15px;

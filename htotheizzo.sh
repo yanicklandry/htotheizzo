@@ -591,8 +591,9 @@ update() {
     "$HOME/.tmux/plugins/tpm/bin/update_plugins" all || log "Warning: tmux plugin update failed"
   fi
 
-  # CPAN (Perl)
-  if command_exists cpan; then
+  # CPAN (Perl) - skipped by default due to macOS hardened runtime issues
+  # To enable: unset skip_cpan before running or remove skip_cpan=1
+  if [[ -z "${skip_cpan:-1}" ]] && command_exists cpan; then
     log "Updating CPAN modules..."
     cpan -u || log "Warning: cpan update failed"
   fi

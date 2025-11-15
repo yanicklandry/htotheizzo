@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showError: (title, content) => ipcRenderer.invoke('show-error', title, content),
   showMessage: (options) => ipcRenderer.invoke('show-message', options),
   
+  // Command detection
+  detectCommands: () => ipcRenderer.invoke('detect-commands'),
+  
   // Listen for real-time output
   onHtotheizzo: (callback) => {
     const subscription = (event, data) => callback(data);
