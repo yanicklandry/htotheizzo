@@ -4,7 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-htotheizzo is a system update automation script that updates multiple package managers and tools across macOS, Linux, and Windows systems. It handles Homebrew, apt-get, npm, pip, gems, and various other package managers in a single command.
+htotheizzo is a comprehensive system update automation script that updates multiple package managers and development tools across macOS, Linux, and Windows systems. It handles 50+ package managers and tools including:
+
+- **System packages**: Homebrew, apt-get, Snap, Flatpak, Mac App Store
+- **Language ecosystems**: npm/yarn/pnpm/Bun/Deno, pip/pipenv/conda, gem, Rust/Cargo, Composer, CPAN
+- **Version managers**: asdf, nvm, pyenv, rbenv, rvm, SDKMAN, tfenv
+- **Infrastructure tools**: Docker, Helm, Flutter
+- **Development tools**: VS Code, CocoaPods, tmux plugins
+- **System maintenance**: Cache cleanup, log rotation, disk verification (macOS)
+
+All in a single command with intelligent error handling and skip options.
 
 ## Architecture
 
@@ -147,23 +156,60 @@ crontab -e
 The script supports skipping specific package managers using environment variables:
 
 - `skip_brew=1` - Skip Homebrew updates
-- `skip_mas=1` - Skip Mac App Store updates  
+- `skip_mas=1` - Skip Mac App Store updates
 - `skip_kav=1` - Skip Kaspersky updates
 - `skip_snap=1` - Skip Snap package updates
 - `skip_flatpak=1` - Skip Flatpak updates
 - `skip_bun=1` - Skip Bun updates
 - `skip_spotlight=1` - Skip Spotlight index rebuild (macOS only)
 - `skip_launchpad=1` - Skip Launchpad reset (macOS only)
+- `skip_rustup=1` - Skip Rust toolchain updates
+- `skip_cargo=1` - Skip Cargo package updates
+- `skip_pnpm=1` - Skip pnpm updates
+- `skip_deno=1` - Skip Deno updates
+- `skip_composer=1` - Skip Composer (PHP) updates
+- `skip_docker=1` - Skip Docker cleanup
+- `skip_pod=1` - Skip CocoaPods updates
+- `skip_asdf=1` - Skip asdf version manager updates
+- `skip_pyenv=1` - Skip pyenv updates
+- `skip_rbenv=1` - Skip rbenv updates
+- `skip_sdk=1` - Skip SDKMAN updates
+- `skip_tfenv=1` - Skip tfenv (Terraform) updates
+- `skip_flutter=1` - Skip Flutter updates
+- `skip_conda=1` - Skip Conda updates
+- `skip_mamba=1` - Skip Mamba updates
+- `skip_helm=1` - Skip Helm repository updates
+- `skip_cpan=1` - Skip CPAN (Perl) updates
+- `skip_go=1` - Skip Go/Golang updates
+- `skip_poetry=1` - Skip Poetry updates
+- `skip_pdm=1` - Skip PDM updates
+- `skip_uv=1` - Skip uv updates
+- `skip_gh=1` - Skip GitHub CLI extension updates
+- `skip_gcloud=1` - Skip Google Cloud SDK updates
+- `skip_aws=1` - Skip AWS CLI detection
+- `skip_az=1` - Skip Azure CLI updates
+- `skip_kubectl=1` - Skip kubectl detection
+- `skip_port=1` - Skip MacPorts updates
+- `skip_nix-env=1` - Skip Nix package manager updates
+- `skip_mise=1` - Skip mise version manager updates
+- `skip_antibody=1` - Skip Antibody updates
+- `skip_fisher=1` - Skip Fisher updates
+- `skip_starship=1` - Skip Starship detection
+- `skip_jenv=1` - Skip jenv updates
+- `skip_goenv=1` - Skip goenv updates
+- `skip_nodenv=1` - Skip nodenv updates
 
 ## Platform-Specific Behavior
 
 ### macOS
 - Updates Homebrew (including casks with `--greedy` flag)
+- Homebrew services cleanup
+- Updates CocoaPods repositories (iOS/macOS development)
 - Updates Mac App Store apps via `mas`
 - Installs/updates Apple Command Line Tools
 - Runs macOS Software Update
 - Updates Microsoft Office via AutoUpdate
-- **New Maintenance Tasks:**
+- **Maintenance Tasks:**
   - Verifies disk integrity using `diskutil`
   - Clears memory and user caches
   - Runs system periodic maintenance scripts
@@ -179,12 +225,93 @@ The script supports skipping specific package managers using environment variabl
 - Supports Homebrew on Linux
 
 ### Cross-Platform
-- Updates npm packages globally
-- Updates Python pip packages (with user flag for safety)
-- Updates Ruby gems
-- Updates yarn, nvm, rvm, pipenv
-- Updates VS Code extensions
-- Updates Oh My ZSH and Atom packages (if installed)
+
+**JavaScript/Node.js:**
+- npm (with global package updates and cache cleanup)
+- yarn (supports Homebrew, corepack, and npm installation methods)
+- pnpm (global package updates)
+- nvm (Node version manager)
+- Bun (JavaScript runtime and package manager)
+- Deno (modern JavaScript/TypeScript runtime)
+
+**Python:**
+- pip/pip3 (user packages with safety flags)
+- pipenv (cache clearing)
+- pyenv (Python version manager)
+- Conda/Mamba (Python environment managers)
+- Poetry (modern dependency manager with self-update)
+- PDM (modern dependency manager with self-update)
+- uv (fast package installer with self-update)
+
+**Ruby:**
+- gem (system gems with cleanup)
+- rvm (Ruby version manager with cleanup)
+- rbenv (Ruby version manager with ruby-build plugin)
+
+**Rust:**
+- rustup (Rust toolchain updates)
+- cargo (cargo-installed package updates via cargo-update)
+
+**PHP:**
+- Composer (global packages and cache clearing)
+
+**Go:**
+- Go toolchain updates
+- Globally installed Go packages (via go install)
+
+**Java/JVM:**
+- SDKMAN (Java/JVM version manager)
+- jenv (Java version manager)
+
+**Infrastructure/DevOps:**
+- Docker (system prune for unused images/containers/volumes)
+- Helm (Kubernetes package manager repository updates)
+- kubectl (Kubernetes CLI - detected, updated via package managers)
+- Terraform (tfenv version manager)
+
+**Cloud Provider CLIs:**
+- GitHub CLI (gh) - extension updates
+- Google Cloud SDK (gcloud) - component updates
+- AWS CLI - detected, updated via package managers
+- Azure CLI (az) - self-update
+
+**Multi-Language Version Managers:**
+- asdf (universal version manager with plugin updates)
+- mise (formerly rtx - modern polyglot version manager)
+
+**Language-Specific Version Managers:**
+- nvm (Node version manager)
+- nodenv (Node version manager - alternative to nvm)
+- pyenv (Python version manager)
+- rbenv (Ruby version manager with ruby-build plugin)
+- rvm (Ruby version manager with cleanup)
+- goenv (Go version manager)
+- jenv (Java version manager)
+- tfenv (Terraform version manager)
+- SDKMAN (Java/JVM/Gradle/Maven version manager)
+
+**Package Manager Alternatives:**
+- MacPorts (macOS package manager - alternative to Homebrew)
+- Nix (cross-platform functional package manager)
+
+**Shell Customization:**
+- Oh My ZSH (Zsh framework with omz command)
+- Zinit (Zsh plugin manager with self-update)
+- Antibody (Zsh plugin manager)
+- Antigen (Zsh plugin manager)
+- Fisher (Fish shell plugin manager)
+- Starship (cross-shell prompt - detected)
+
+**Development Tools:**
+- VS Code extensions
+- Flutter (mobile development framework)
+- tmux plugin manager (if tpm is installed)
+- CocoaPods (iOS/macOS dependency manager)
+
+**Other:**
+- Atom packages (via apm, if installed)
+- CPAN (Perl modules)
+- Kaspersky Security Tools (if installed)
 - Self-updates the script via git
 
 ## Error Handling
@@ -202,6 +329,12 @@ The script includes comprehensive error handling:
 ### Docker Integration
 - Replaces systemd files from `~/.sysd/` if directory exists
 - Restarts Docker service after systemd updates
+- Performs system-wide cleanup to remove:
+  - Unused images
+  - Stopped containers
+  - Unused volumes
+  - Unused networks
+  - Build cache
 
 ### Security Considerations
 - Uses `export DEBIAN_FRONTEND=noninteractive` for non-interactive apt operations

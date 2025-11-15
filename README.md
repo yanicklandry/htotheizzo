@@ -2,9 +2,44 @@
 
 [![Join the chat at https://gitter.im/yanicklandry/htotheizzo](https://badges.gitter.im/yanicklandry/htotheizzo.svg)](https://gitter.im/yanicklandry/htotheizzo?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-Update script to update Homebrew, NPM and Gem packages all at once.
+**A comprehensive system update automation script that updates 50+ package managers and development tools across macOS, Linux, and Windows.**
 
-Originally from https://gist.github.com/jfrazelle/57dbf1fccfa02151ff3f, I only very slightly adapted it.
+Update all your package managers with a single command! htotheizzo handles Homebrew, apt-get, npm, pip, gems, and dozens of other package managers in one go.
+
+Originally inspired by https://gist.github.com/jfrazelle/57dbf1fccfa02151ff3f, now significantly expanded.
+
+## Features
+
+- **50+ Package Managers**: Covers virtually every major package manager and version manager
+- **Cross-Platform**: Works on macOS, Linux (including Ubuntu, Debian, Raspberry Pi), and Windows
+- **Modern GUI**: Electron-based GUI with Touch ID support for macOS
+- **Smart Skip System**: Skip any package manager using environment variables
+- **Native Authentication**: Uses system authentication dialogs with Touch ID support
+- **Comprehensive Maintenance**: Includes system cleanup, cache clearing, and optimization
+- **Safe Error Handling**: Graceful failure handling - one failed update won't stop others
+- **Self-Updating**: Automatically updates itself via git
+
+### Supported Package Managers
+
+**System Packages:** Homebrew, MacPorts, Mac App Store (mas), apt, snap, flatpak, Nix
+
+**JavaScript/Node.js:** npm, yarn, pnpm, Bun, Deno, nvm, nodenv
+
+**Python:** pip, pipenv, Poetry, PDM, uv, Conda, Mamba, pyenv
+
+**Ruby:** gem, rvm, rbenv
+
+**Other Languages:** Rust (rustup/cargo), Go, PHP (Composer), Perl (CPAN)
+
+**Version Managers:** asdf, mise, pyenv, rbenv, nvm, nodenv, rvm, goenv, jenv, SDKMAN, tfenv
+
+**Cloud & Infrastructure:** Docker, Helm, kubectl, GitHub CLI, Google Cloud SDK, AWS CLI, Azure CLI
+
+**Development Tools:** VS Code, CocoaPods, Flutter, tmux plugins
+
+**Shell Customization:** Oh My Zsh, Zinit, Antibody, Antigen, Fisher, Starship
+
+**macOS Maintenance:** Disk verification, cache clearing, Spotlight rebuild, Launchpad reset
 
 ## Requirements
 
@@ -32,21 +67,46 @@ sudo chmod a+x /usr/local/bin/brew
 
 ## Usage
 
+### Command Line
+
 It's better to have sudo authorization while still being logged as your user. For example :
 
-```
+```bash
 sudo ls
 # enter your password
 htotheizzo.sh
 ```
 
-### Skip one command
+### GUI Mode
 
-Example :
+Launch the modern Electron GUI:
 
+```bash
+htotheizzo-gui
 ```
+
+The GUI provides:
+- Visual interface with checkboxes for all package managers
+- Real-time update progress display
+- Touch ID authentication on macOS
+- Organized categories for easy selection
+
+### Skip Specific Package Managers
+
+You can skip any package manager using environment variables:
+
+```bash
+# Skip specific tools
 skip_kav=1 skip_mas=1 htotheizzo.sh
+
+# Skip Docker cleanup and cloud tools
+skip_docker=1 skip_gcloud=1 skip_aws=1 htotheizzo.sh
+
+# Skip all Python tools
+skip_pip=1 skip_pip3=1 skip_poetry=1 skip_conda=1 htotheizzo.sh
 ```
+
+All available skip variables: `skip_brew`, `skip_mas`, `skip_snap`, `skip_flatpak`, `skip_bun`, `skip_npm`, `skip_yarn`, `skip_pnpm`, `skip_deno`, `skip_pip`, `skip_pip3`, `skip_pipenv`, `skip_poetry`, `skip_pdm`, `skip_uv`, `skip_conda`, `skip_mamba`, `skip_gem`, `skip_rvm`, `skip_rbenv`, `skip_rustup`, `skip_cargo`, `skip_go`, `skip_composer`, `skip_cpan`, `skip_asdf`, `skip_mise`, `skip_nvm`, `skip_nodenv`, `skip_pyenv`, `skip_goenv`, `skip_jenv`, `skip_sdk`, `skip_tfenv`, `skip_docker`, `skip_helm`, `skip_kubectl`, `skip_gh`, `skip_gcloud`, `skip_aws`, `skip_az`, `skip_code`, `skip_pod`, `skip_flutter`, `skip_omz`, `skip_antibody`, `skip_fisher`, `skip_starship`, `skip_port`, `skip_nix-env`, `skip_kav`, `skip_apm`, `skip_spotlight`, `skip_launchpad`
 
 ## Automated Scheduling with Cron
 

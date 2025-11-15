@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
+const { exec } = require('child_process');
 
 let mainWindow;
 
@@ -127,4 +128,62 @@ ipcMain.handle('show-error', async (event, title, content) => {
 ipcMain.handle('show-message', async (event, options) => {
   const result = await dialog.showMessageBox(mainWindow, options);
   return result;
+});
+
+ipcMain.handle('detect-commands', async () => {
+  const commands = [
+    'brew', 'port', 'mas', 'snap', 'flatpak', 'nix-env',
+    'npm', 'yarn', 'pnpm', 'bun', 'deno',
+    'pip', 'pip3', 'pipenv', 'poetry', 'pdm', 'uv', 'conda', 'mamba',
+    'gem', 'rvm',
+    'rustup', 'cargo', 'go', 'composer', 'cpan',
+    'asdf', 'mise', 'nvm', 'nodenv', 'pyenv', 'rbenv', 'goenv', 'jenv', 'sdk', 'tfenv',
+    'docker', 'helm', 'kubectl', 'gh', 'gcloud', 'aws', 'az',
+    'code', 'pod', 'flutter',
+    'antibody', 'fisher', 'starship',
+    'kav', 'apm'
+  ];
+
+  const detectionResults = {};
+
+  for (const cmd of commands) {
+    try {
+      await new Promise((resolve, reject) => {
+        exec(`command -v ${cmd}`, (error) => {
+          if (error) {
+            detectionResults[cmd] = false;
+            resolve();
+          } else {
+            detectionResults[cmd] = true;
+            resolve();
+          }
+        });
+      });
+    } catch (error) {
+      detectionResults[cmd] = false;
+    }
+  }
+
+  // Special cases for macOS-specific commands
+  if (process.platform === 'darwin') {
+    detectionResults['spotlight'] = true;
+    detectionResults['launchpad'] = true;
+  } else {
+    detectionResults['spotlight'] = false;
+    detectionResults['launchpad'] = false;
+  }
+
+  // Special detection for Oh My Zsh (check for directory instead of command)
+  try {
+    await new Promise((resolve) => {
+      exec('test -d ~/.oh-my-zsh', (error) => {
+        detectionResults['omz'] = !error;
+        resolve();
+      });
+    });
+  } catch (error) {
+    detectionResults['omz'] = false;
+  }
+
+  return detectionResults;
 });

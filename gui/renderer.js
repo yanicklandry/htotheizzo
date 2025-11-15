@@ -13,6 +13,37 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('electronAPI loaded successfully:', Object.keys(electronAPI));
     
+    // Detect available commands and grey out undetected ones
+    async function detectAndMarkCommands() {
+        try {
+            const detectionResults = await electronAPI.detectCommands();
+            console.log('Command detection results:', detectionResults);
+            
+            // Iterate through all checkboxes and mark undetected commands
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                const commandName = checkbox.id.replace('skip_', '');
+                const optionDiv = checkbox.closest('.option');
+                
+                if (detectionResults[commandName] === false) {
+                    // Command not detected - grey it out
+                    optionDiv.classList.add('undetected');
+                    checkbox.disabled = true;
+                    checkbox.checked = false;
+                } else if (detectionResults[commandName] === true) {
+                    // Command detected - ensure it's enabled
+                    optionDiv.classList.remove('undetected');
+                    checkbox.disabled = false;
+                }
+            });
+        } catch (error) {
+            console.error('Error detecting commands:', error);
+        }
+    }
+    
+    // Run detection on page load
+    detectAndMarkCommands();
+    
     // DOM elements
     const statusEl = document.getElementById('status');
     const runUpdateBtn = document.getElementById('runUpdate');

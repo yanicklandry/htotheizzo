@@ -314,6 +314,16 @@ update() {
 
     if command_exists brew; then
       update_homebrew true
+
+      # Homebrew services cleanup
+      log "Cleaning up Homebrew services..."
+      brew services cleanup || log "Warning: brew services cleanup failed"
+    fi
+
+    # CocoaPods update (iOS/macOS development)
+    if command_exists pod; then
+      log "Updating CocoaPods repositories..."
+      pod repo update || log "Warning: pod repo update failed"
     fi
 
     if command_exists softwareupdate; then
@@ -469,6 +479,264 @@ update() {
   if command_exists pipenv; then
     # echo "Clearing pipenv cache"
     pipenv --clear
+  fi
+
+  # Rust/Cargo updates
+  if command_exists rustup; then
+    log "Updating Rust toolchain..."
+    rustup update || log "Warning: rustup update failed"
+  fi
+
+  if command_exists cargo; then
+    # Check if cargo-update is installed for updating cargo packages
+    if cargo install --list | grep -q "cargo-update"; then
+      log "Updating cargo-installed packages..."
+      cargo install-update -a || log "Warning: cargo install-update failed"
+    fi
+  fi
+
+  # pnpm updates
+  if command_exists pnpm; then
+    log "Updating pnpm global packages..."
+    pnpm update -g || log "Warning: pnpm global update failed"
+  fi
+
+  # Deno updates
+  if command_exists deno; then
+    log "Updating Deno..."
+    deno upgrade || log "Warning: deno upgrade failed"
+  fi
+
+  # Composer (PHP) updates
+  if command_exists composer; then
+    log "Updating Composer global packages..."
+    composer global update || log "Warning: composer global update failed"
+    composer clear-cache || log "Warning: composer cache clear failed"
+  fi
+
+  # Docker cleanup
+  if command_exists docker; then
+    log "Cleaning up Docker..."
+    docker system prune -af --volumes || log "Warning: docker system prune failed"
+  fi
+
+  # asdf version manager
+  if command_exists asdf; then
+    log "Updating asdf..."
+    asdf update || log "Warning: asdf update failed"
+    asdf plugin update --all || log "Warning: asdf plugin update failed"
+  fi
+
+  # pyenv version manager
+  if command_exists pyenv; then
+    log "Updating pyenv..."
+    if [[ -d "$(pyenv root)/.git" ]]; then
+      cd "$(pyenv root)" && git pull && cd - >/dev/null || log "Warning: pyenv update failed"
+    fi
+  fi
+
+  # rbenv version manager
+  if command_exists rbenv; then
+    log "Updating rbenv..."
+    if [[ -d "$(rbenv root)/.git" ]]; then
+      cd "$(rbenv root)" && git pull && cd - >/dev/null || log "Warning: rbenv update failed"
+    fi
+    # Update ruby-build plugin if it exists
+    if [[ -d "$(rbenv root)/plugins/ruby-build/.git" ]]; then
+      cd "$(rbenv root)/plugins/ruby-build" && git pull && cd - >/dev/null || log "Warning: ruby-build update failed"
+    fi
+  fi
+
+  # SDKMAN version manager
+  if command_exists sdk; then
+    log "Updating SDKMAN..."
+    sdk selfupdate || log "Warning: sdk selfupdate failed"
+    sdk update || log "Warning: sdk update failed"
+  fi
+
+  # tfenv (Terraform version manager)
+  if command_exists tfenv; then
+    log "Updating tfenv..."
+    if [[ -d "$HOME/.tfenv/.git" ]]; then
+      cd "$HOME/.tfenv" && git pull && cd - >/dev/null || log "Warning: tfenv update failed"
+    fi
+  fi
+
+  # Flutter
+  if command_exists flutter; then
+    log "Updating Flutter..."
+    flutter upgrade || log "Warning: flutter upgrade failed"
+  fi
+
+  # Conda/Mamba
+  if command_exists conda; then
+    log "Updating Conda packages..."
+    conda update --all -y || log "Warning: conda update failed"
+  fi
+
+  if command_exists mamba; then
+    log "Updating Mamba packages..."
+    mamba update --all -y || log "Warning: mamba update failed"
+  fi
+
+  # Helm
+  if command_exists helm; then
+    log "Updating Helm repositories..."
+    helm repo update || log "Warning: helm repo update failed"
+  fi
+
+  # tmux plugin manager
+  if [[ -d "$HOME/.tmux/plugins/tpm" ]]; then
+    log "Updating tmux plugins..."
+    "$HOME/.tmux/plugins/tpm/bin/update_plugins" all || log "Warning: tmux plugin update failed"
+  fi
+
+  # CPAN (Perl) - skipped by default due to macOS hardened runtime issues
+  # To enable: unset skip_cpan before running or remove skip_cpan=1
+  if [[ -z "${skip_cpan:-1}" ]] && command_exists cpan; then
+    log "Updating CPAN modules..."
+    cpan -u || log "Warning: cpan update failed"
+  fi
+
+  # Go/Golang updates
+  if command_exists go; then
+    log "Updating Go toolchain..."
+    go install golang.org/dl/go@latest || log "Warning: go toolchain update failed"
+
+    # Update globally installed go packages (if any)
+    if [[ -d "$HOME/go/bin" ]]; then
+      log "Go packages found in ~/go/bin"
+      # Note: Go doesn't have a built-in update all command
+      # Users typically manage this per-package
+    fi
+  fi
+
+  # Poetry (Python dependency manager)
+  if command_exists poetry; then
+    log "Updating Poetry..."
+    poetry self update || log "Warning: poetry self update failed"
+  fi
+
+  # PDM (Python dependency manager)
+  if command_exists pdm; then
+    log "Updating PDM..."
+    pdm self update || log "Warning: pdm self update failed"
+  fi
+
+  # uv (Fast Python package installer)
+  if command_exists uv; then
+    log "Updating uv..."
+    uv self update || log "Warning: uv self update failed"
+  fi
+
+  # GitHub CLI
+  if command_exists gh; then
+    log "Updating GitHub CLI..."
+    gh extension upgrade --all || log "Warning: gh extension upgrade failed"
+  fi
+
+  # Google Cloud SDK
+  if command_exists gcloud; then
+    log "Updating Google Cloud SDK..."
+    gcloud components update --quiet || log "Warning: gcloud components update failed"
+  fi
+
+  # AWS CLI (v2 doesn't have auto-update via CLI, managed by package managers)
+  if command_exists aws; then
+    log "AWS CLI detected (update via package manager)"
+  fi
+
+  # Azure CLI
+  if command_exists az; then
+    log "Updating Azure CLI..."
+    az upgrade --yes || log "Warning: az upgrade failed"
+  fi
+
+  # kubectl (Kubernetes CLI)
+  if command_exists kubectl; then
+    log "kubectl detected (update via package manager)"
+    # kubectl doesn't have self-update, managed via package managers
+  fi
+
+  # MacPorts (alternative to Homebrew on macOS)
+  if command_exists port; then
+    log "Updating MacPorts..."
+    sudo port selfupdate || log "Warning: port selfupdate failed"
+    sudo port upgrade outdated || log "Warning: port upgrade failed"
+  fi
+
+  # Nix package manager
+  if command_exists nix-env; then
+    log "Updating Nix packages..."
+    nix-channel --update || log "Warning: nix-channel update failed"
+    nix-env -u || log "Warning: nix-env upgrade failed"
+  fi
+
+  # mise (formerly rtx) - polyglot version manager
+  if command_exists mise; then
+    log "Updating mise..."
+    mise self-update || log "Warning: mise self-update failed"
+    mise plugins update || log "Warning: mise plugins update failed"
+  fi
+
+  # Zinit (Zsh plugin manager)
+  if [[ -d "$HOME/.local/share/zinit/zinit.git" ]]; then
+    log "Updating Zinit..."
+    zinit self-update || log "Warning: zinit self-update failed"
+    zinit update --all || log "Warning: zinit update failed"
+  fi
+
+  # Antibody (Zsh plugin manager)
+  if command_exists antibody; then
+    log "Updating Antibody..."
+    antibody update || log "Warning: antibody update failed"
+  fi
+
+  # Antigen (Zsh plugin manager)
+  if [[ -f "$HOME/.antigen/antigen.zsh" ]]; then
+    log "Updating Antigen plugins..."
+    # Antigen updates itself and plugins on next shell load
+    antigen update || log "Warning: antigen update failed"
+  fi
+
+  # Fisher (Fish shell plugin manager)
+  if command_exists fisher; then
+    log "Updating Fisher plugins..."
+    fisher update || log "Warning: fisher update failed"
+  fi
+
+  # Starship prompt
+  if command_exists starship; then
+    log "Starship detected (update via package manager)"
+    # Starship is typically updated via package managers
+  fi
+
+  # jenv (Java version manager)
+  if command_exists jenv; then
+    log "Updating jenv..."
+    if [[ -d "$HOME/.jenv/.git" ]]; then
+      cd "$HOME/.jenv" && git pull && cd - >/dev/null || log "Warning: jenv update failed"
+    fi
+  fi
+
+  # goenv (Go version manager)
+  if command_exists goenv; then
+    log "Updating goenv..."
+    if [[ -d "$(goenv root)/.git" ]]; then
+      cd "$(goenv root)" && git pull && cd - >/dev/null || log "Warning: goenv update failed"
+    fi
+  fi
+
+  # nodenv (Node version manager)
+  if command_exists nodenv; then
+    log "Updating nodenv..."
+    if [[ -d "$(nodenv root)/.git" ]]; then
+      cd "$(nodenv root)" && git pull && cd - >/dev/null || log "Warning: nodenv update failed"
+    fi
+    # Update node-build plugin if it exists
+    if [[ -d "$(nodenv root)/plugins/node-build/.git" ]]; then
+      cd "$(nodenv root)/plugins/node-build" && git pull && cd - >/dev/null || log "Warning: node-build update failed"
+    fi
   fi
 
   if command_exists rvm; then
