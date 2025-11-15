@@ -176,8 +176,8 @@
                     <label for="skip_flatpak">Flatpak</label>
                 </div>
                 <div class="option">
-                    <input type="checkbox" id="skip_nix-env" checked />
-                    <label for="skip_nix-env">Nix</label>
+                    <input type="checkbox" id="skip_nix_env" checked />
+                    <label for="skip_nix_env">Nix</label>
                 </div>
             </div>
         </div>
@@ -414,10 +414,26 @@
             </div>
         </div>
 
-        <!-- macOS Maintenance -->
+        <!-- macOS System -->
         <div class="category">
-            <h3>macOS Maintenance</h3>
+            <h3>macOS System</h3>
             <div class="options">
+                <div class="option">
+                    <input type="checkbox" id="skip_xcode_select" checked />
+                    <label for="skip_xcode_select">Xcode Command Line Tools</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_softwareupdate" checked />
+                    <label for="skip_softwareupdate">Software Update</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_disk_maintenance" checked />
+                    <label for="skip_disk_maintenance">Disk Maintenance</label>
+                </div>
+                <div class="option">
+                    <input type="checkbox" id="skip_system_maintenance" checked />
+                    <label for="skip_system_maintenance">System Maintenance</label>
+                </div>
                 <div class="option">
                     <input type="checkbox" id="skip_spotlight" checked />
                     <label for="skip_spotlight">Spotlight Rebuild</label>
@@ -434,6 +450,10 @@
             <h3>Other</h3>
             <div class="options">
                 <div class="option">
+                    <input type="checkbox" id="skip_self_update" checked />
+                    <label for="skip_self_update">Self-Update htotheizzo</label>
+                </div>
+                <div class="option">
                     <input type="checkbox" id="skip_kav" checked />
                     <label for="skip_kav">Kaspersky</label>
                 </div>
@@ -445,7 +465,15 @@
         </div>
 
         <div class="buttons">
+            <button id="unselectAll" class="secondary">Unselect All</button>
             <button id="runUpdate" class="primary">Run Updates</button>
+        </div>
+
+        <div style="text-align: center; margin-top: 10px;">
+            <label style="font-size: 14px; color: #666;">
+                <input type="checkbox" id="mockMode" style="margin-right: 5px;" />
+                Mock Mode (dry run - log commands without executing)
+            </label>
         </div>
 
         <div id="loading" class="loading">

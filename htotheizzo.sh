@@ -4,8 +4,22 @@ set -euo pipefail
 
 THISUSER=$(who am i | awk '{print $1}')
 
+# Mock mode - if set, commands will be logged but not executed
+MOCK_MODE="${MOCK_MODE:-}"
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >&2
+}
+
+# Execute command or mock it
+maybe_run() {
+    local cmd="$1"
+    if [[ -n "$MOCK_MODE" ]]; then
+        log "[MOCK] Would run: $cmd"
+        return 0
+    else
+        eval "$cmd"
+    fi
 }
 
 # Standardized error handling helper
@@ -36,7 +50,9 @@ help() {
 
 command_exists() {
   local cmd="$1"
-  local varname="skip_${cmd}"
+  # Normalize variable name by replacing hyphens with underscores
+  local normalized_cmd="${cmd//-/_}"
+  local varname="skip_${normalized_cmd}"
   local skip_var="${!varname:-}"
 
   if [[ -n "${skip_var}" ]]; then
@@ -306,10 +322,12 @@ update() {
     fi
 
     # Install Apple Command Line Tools (necessary after an update)
-    if command_exists xcode-select; then
+    if [[ -z "${skip_xcode_select:-}" ]] && command_exists xcode-select; then
       log "Updating Apple Command Line Tools..."
       sudo xcodebuild -license accept 2>/dev/null || log "Warning: xcodebuild license accept failed"
       xcode-select --install 2>/dev/null || log "Command line tools already installed or installation failed"
+    elif [[ -n "${skip_xcode_select:-}" ]]; then
+      log "Skipped xcode-select"
     fi
 
     if command_exists brew; then
@@ -326,9 +344,11 @@ update() {
       pod repo update || log "Warning: pod repo update failed"
     fi
 
-    if command_exists softwareupdate; then
+    if [[ -z "${skip_softwareupdate:-}" ]] && command_exists softwareupdate; then
       log "Updating Apple Software Update"
       softwareupdate --install --all || log "Warning: softwareupdate failed"
+    elif [[ -n "${skip_softwareupdate:-}" ]]; then
+      log "Skipped softwareupdate"
     fi
 
     # Update Mac App Store using : https://github.com/argon/mas
@@ -343,17 +363,30 @@ update() {
       open "/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app" || log "Warning: failed to open Microsoft AutoUpdate"
     fi
 
-    # Run macOS maintenance tasks
-    mac_disk_maintenance
-    mac_system_maintenance
-    
+    # Run macOS maintenance tasks (can be skipped with environment variables)
+    if [[ -z "${skip_disk_maintenance:-}" ]]; then
+      mac_disk_maintenance
+    else
+      log "Skipped disk_maintenance"
+    fi
+
+    if [[ -z "${skip_system_maintenance:-}" ]]; then
+      mac_system_maintenance
+    else
+      log "Skipped system_maintenance"
+    fi
+
     # Optional maintenance (can be skipped with environment variables)
     if [[ -z "${skip_spotlight:-}" ]]; then
       mac_spotlight_rebuild
+    else
+      log "Skipped spotlight"
     fi
-    
+
     if [[ -z "${skip_launchpad:-}" ]]; then
       mac_reset_launchpad
+    else
+      log "Skipped launchpad"
     fi
 
   elif [[ -n "$is_raspberry" ]]; then
@@ -377,7 +410,12 @@ update() {
 
   sudo echo "Kept sudo."
 
-  update_itself
+  # Self-update (can be skipped with environment variable)
+  if [[ -z "${skip_self_update:-}" ]]; then
+    update_itself
+  else
+    log "Skipped self_update"
+  fi
 
   update_vscode_ext
 
@@ -761,12 +799,27 @@ update() {
 }
 
 main() {
-  local arg="${1:-}"
-  if [[ -n "$arg" ]]; then
-    help
-  else
-    update
-  fi
+  # Parse command line arguments
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --mock)
+        export MOCK_MODE=1
+        log "Running in MOCK mode - commands will be logged but not executed"
+        shift
+        ;;
+      --help|-h)
+        help
+        exit 0
+        ;;
+      *)
+        echo "Unknown option: $1"
+        help
+        exit 1
+        ;;
+    esac
+  done
+
+  update
 }
 
 main "$@"

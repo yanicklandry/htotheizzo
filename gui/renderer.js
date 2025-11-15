@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // DOM elements
     const statusEl = document.getElementById('status');
     const runUpdateBtn = document.getElementById('runUpdate');
+    const unselectAllBtn = document.getElementById('unselectAll');
     const loadingEl = document.getElementById('loading');
     const outputEl = document.getElementById('output');
     
@@ -77,17 +78,32 @@ document.addEventListener('DOMContentLoaded', function() {
     // Collect skip options from checkboxes (send skip variable when unchecked)
     function getSkipOptions() {
         const options = {};
-        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-        
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]:not(#mockMode)');
+
         checkboxes.forEach(checkbox => {
             if (!checkbox.checked) {
                 options[checkbox.id] = '1';
             }
         });
-        
+
+        // Add mock mode if checked
+        const mockModeCheckbox = document.getElementById('mockMode');
+        if (mockModeCheckbox && mockModeCheckbox.checked) {
+            options['MOCK_MODE'] = '1';
+        }
+
         return options;
     }
     
+    // Unselect all checkboxes
+    unselectAllBtn.addEventListener('click', () => {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]:not(:disabled):not(#mockMode)');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        setStatus('All available package managers unselected', 'info');
+    });
+
     // Run updates
     runUpdateBtn.addEventListener('click', async () => {
         console.log('Run Updates button clicked');
