@@ -131,36 +131,81 @@ ipcMain.handle('show-message', async (event, options) => {
 });
 
 ipcMain.handle('detect-commands', async () => {
-  const commands = [
-    'brew', 'port', 'mas', 'snap', 'flatpak', 'nix-env',
-    'npm', 'yarn', 'pnpm', 'bun', 'deno',
-    'pip', 'pip3', 'pipenv', 'poetry', 'pdm', 'uv', 'conda', 'mamba',
-    'gem', 'rvm',
-    'rustup', 'cargo', 'go', 'composer', 'cpan',
-    'asdf', 'mise', 'nvm', 'nodenv', 'pyenv', 'rbenv', 'goenv', 'jenv', 'sdk', 'tfenv',
-    'docker', 'helm', 'kubectl', 'gh', 'gcloud', 'aws', 'az',
-    'code', 'pod', 'flutter',
-    'antibody', 'fisher', 'starship',
-    'kav', 'apm'
-  ];
+  // Map of checkbox IDs (without skip_ prefix) to actual command names
+  const commandMap = {
+    'brew': 'brew',
+    'port': 'port',
+    'mas': 'mas',
+    'snap': 'snap',
+    'flatpak': 'flatpak',
+    'nix_env': 'nix-env',
+    'npm': 'npm',
+    'yarn': 'yarn',
+    'pnpm': 'pnpm',
+    'bun': 'bun',
+    'deno': 'deno',
+    'pip': 'pip',
+    'pip3': 'pip3',
+    'pipenv': 'pipenv',
+    'poetry': 'poetry',
+    'pdm': 'pdm',
+    'uv': 'uv',
+    'conda': 'conda',
+    'mamba': 'mamba',
+    'gem': 'gem',
+    'rvm': 'rvm',
+    'rustup': 'rustup',
+    'cargo': 'cargo',
+    'go': 'go',
+    'composer': 'composer',
+    'cpan': 'cpan',
+    'asdf': 'asdf',
+    'mise': 'mise',
+    'nvm': 'nvm',
+    'nodenv': 'nodenv',
+    'pyenv': 'pyenv',
+    'rbenv': 'rbenv',
+    'goenv': 'goenv',
+    'jenv': 'jenv',
+    'sdk': 'sdk',
+    'tfenv': 'tfenv',
+    'docker': 'docker',
+    'helm': 'helm',
+    'kubectl': 'kubectl',
+    'gh': 'gh',
+    'gcloud': 'gcloud',
+    'aws': 'aws',
+    'az': 'az',
+    'code': 'code',
+    'pod': 'pod',
+    'flutter': 'flutter',
+    'antibody': 'antibody',
+    'fisher': 'fisher',
+    'starship': 'starship',
+    'kav': 'kav',
+    'apm': 'apm',
+    'xcode_select': 'xcode-select',
+    'softwareupdate': 'softwareupdate',
+    'self_update': 'git',  // Check for git since self-update uses git
+  };
 
   const detectionResults = {};
 
-  for (const cmd of commands) {
+  for (const [checkboxId, actualCommand] of Object.entries(commandMap)) {
     try {
       await new Promise((resolve, reject) => {
-        exec(`command -v ${cmd}`, (error) => {
+        exec(`command -v ${actualCommand}`, (error) => {
           if (error) {
-            detectionResults[cmd] = false;
+            detectionResults[checkboxId] = false;
             resolve();
           } else {
-            detectionResults[cmd] = true;
+            detectionResults[checkboxId] = true;
             resolve();
           }
         });
       });
     } catch (error) {
-      detectionResults[cmd] = false;
+      detectionResults[checkboxId] = false;
     }
   }
 
@@ -168,9 +213,13 @@ ipcMain.handle('detect-commands', async () => {
   if (process.platform === 'darwin') {
     detectionResults['spotlight'] = true;
     detectionResults['launchpad'] = true;
+    detectionResults['disk_maintenance'] = true;  // Uses diskutil, always available on macOS
+    detectionResults['system_maintenance'] = true;  // Uses periodic, always available on macOS
   } else {
     detectionResults['spotlight'] = false;
     detectionResults['launchpad'] = false;
+    detectionResults['disk_maintenance'] = false;
+    detectionResults['system_maintenance'] = false;
   }
 
   // Special detection for Oh My Zsh (check for directory instead of command)
