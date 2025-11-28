@@ -5,483 +5,303 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>htotheizzo GUI</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
+
         .container {
-            max-width: 800px;
-            margin: 0 auto;
+            width: 600px;
+            height: 650px;
             background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
+
         h1 {
             color: #333;
             text-align: center;
-            margin-bottom: 30px;
+            margin: 0 0 20px 0;
+            font-size: 24px;
+            font-weight: 600;
         }
-        .options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        .category {
-            margin-bottom: 25px;
-        }
-        .category h3 {
-            color: #555;
-            font-size: 14px;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 2px solid #007AFF;
-        }
-        .option {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background: #f9f9f9;
-        }
-        .option input[type="checkbox"] {
-            margin-right: 10px;
-        }
-        .option.undetected {
-            opacity: 0.5;
-        }
-        .option.undetected input[type="checkbox"] {
-            cursor: not-allowed;
-        }
-        .option.undetected label {
-            color: #999;
-            text-decoration: line-through;
-        }
-        .buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-        button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .primary {
-            background-color: #007AFF;
-            color: white;
-        }
-        .primary:hover {
-            background-color: #0056CC;
-        }
-        .primary:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .secondary {
-            background-color: #f0f0f0;
-            color: #333;
-        }
-        .secondary:hover {
-            background-color: #e0e0e0;
-        }
-        .output {
-            background: #1e1e1e;
-            color: #f0f0f0;
-            padding: 15px;
-            border-radius: 5px;
-            font-family: 'SF Mono', Monaco, Consolas, monospace;
-            font-size: 12px;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            display: none;
-        }
+
         .status {
             text-align: center;
             padding: 10px;
             margin-bottom: 20px;
-            border-radius: 5px;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
         }
+
         .status.info {
             background-color: #e3f2fd;
             color: #1976d2;
         }
+
         .status.success {
-            background-color: #e8f5e8;
+            background-color: #e8f5e9;
             color: #2e7d32;
         }
+
         .status.error {
             background-color: #ffebee;
             color: #c62828;
         }
-        .loading {
+
+        .progress-container {
+            margin-bottom: 20px;
             display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
             text-align: center;
-            margin: 20px 0;
+            font-size: 12px;
+            color: #666;
         }
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #007AFF;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
+
+        .main-button {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+
+        .main-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .main-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .toggle-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            user-select: none;
+        }
+
+        .toggle-section:hover {
+            background: #ebebeb;
+        }
+
+        .toggle-section label {
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .toggle-icon {
+            font-size: 18px;
+            transition: transform 0.3s;
+        }
+
+        .toggle-icon.open {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.open {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            padding: 10px;
+            background: #fafafa;
+            border-radius: 8px;
+        }
+
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            font-size: 13px;
+        }
+
+        .option input[type="checkbox"] {
+            margin-right: 6px;
+        }
+
+        .option.undetected {
+            opacity: 0.4;
+        }
+
+        .option.undetected input[type="checkbox"] {
+            cursor: not-allowed;
+        }
+
+        .option.undetected label {
+            color: #999;
+            text-decoration: line-through;
+        }
+
+        .utility-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .utility-button {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            background: white;
+            transition: all 0.2s;
+        }
+
+        .utility-button:hover {
+            background: #f5f5f5;
+            border-color: #999;
+        }
+
+        .output-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .output {
+            flex: 1;
+            background: #1e1e1e;
+            color: #f0f0f0;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-size: 11px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: none;
+        }
+
+        .output.visible {
+            display: block;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #2a2a2a;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #777;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>htotheizzo System Updater</h1>
-        
+
         <div id="status" class="status info">
             Ready to update your system
         </div>
 
-        <!-- System Package Managers -->
-        <div class="category">
-            <h3>System Packages</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_brew" checked />
-                    <label for="skip_brew">Homebrew</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_port" checked />
-                    <label for="skip_port">MacPorts</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_mas" checked />
-                    <label for="skip_mas">Mac App Store</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_snap" checked />
-                    <label for="skip_snap">Snap</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_flatpak" checked />
-                    <label for="skip_flatpak">Flatpak</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_nix_env" checked />
-                    <label for="skip_nix_env">Nix</label>
-                </div>
+        <div id="progressContainer" class="progress-container">
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div id="progressText" class="progress-text">Initializing...</div>
+        </div>
+
+        <button id="runUpdate" class="main-button">Run Updates</button>
+
+        <div class="toggle-section" id="advancedToggle">
+            <label>Advanced Options</label>
+            <span class="toggle-icon">▼</span>
+        </div>
+
+        <div id="advancedContent" class="collapsible-content">
+            <div class="utility-buttons">
+                <button id="unselectAll" class="utility-button">Unselect All</button>
+                <button id="selectAll" class="utility-button">Select All</button>
+            </div>
+
+            <div class="options-grid" id="optionsGrid">
+                <!-- Options will be dynamically populated -->
             </div>
         </div>
 
-        <!-- JavaScript/Node.js -->
-        <div class="category">
-            <h3>JavaScript/Node.js</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_npm" checked />
-                    <label for="skip_npm">npm</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_yarn" checked />
-                    <label for="skip_yarn">yarn</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_pnpm" checked />
-                    <label for="skip_pnpm">pnpm</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_bun" checked />
-                    <label for="skip_bun">Bun</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_deno" checked />
-                    <label for="skip_deno">Deno</label>
-                </div>
-            </div>
+        <div class="toggle-section" id="terminalToggle">
+            <label>Terminal Output</label>
+            <span class="toggle-icon">▼</span>
         </div>
 
-        <!-- Python -->
-        <div class="category">
-            <h3>Python</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_pip" checked />
-                    <label for="skip_pip">pip</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_pip3" checked />
-                    <label for="skip_pip3">pip3</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_pipenv" checked />
-                    <label for="skip_pipenv">pipenv</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_poetry" checked />
-                    <label for="skip_poetry">Poetry</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_pdm" checked />
-                    <label for="skip_pdm">PDM</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_uv" checked />
-                    <label for="skip_uv">uv</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_conda" checked />
-                    <label for="skip_conda">Conda</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_mamba" checked />
-                    <label for="skip_mamba">Mamba</label>
-                </div>
-            </div>
+        <div id="outputContainer" class="output-container">
+            <div id="output" class="output"></div>
         </div>
-
-        <!-- Ruby -->
-        <div class="category">
-            <h3>Ruby</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_gem" checked />
-                    <label for="skip_gem">gem</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_rvm" checked />
-                    <label for="skip_rvm">rvm</label>
-                </div>
-            </div>
-        </div>
-
-        <!-- Other Languages -->
-        <div class="category">
-            <h3>Other Languages</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_rustup" checked />
-                    <label for="skip_rustup">Rust (rustup)</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_cargo" checked />
-                    <label for="skip_cargo">Cargo</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_go" checked />
-                    <label for="skip_go">Go</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_composer" checked />
-                    <label for="skip_composer">Composer (PHP)</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_cpan" checked />
-                    <label for="skip_cpan">CPAN (Perl)</label>
-                </div>
-            </div>
-        </div>
-
-        <!-- Version Managers -->
-        <div class="category">
-            <h3>Version Managers</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_asdf" checked />
-                    <label for="skip_asdf">asdf</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_mise" checked />
-                    <label for="skip_mise">mise</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_nvm" checked />
-                    <label for="skip_nvm">nvm</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_nodenv" checked />
-                    <label for="skip_nodenv">nodenv</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_pyenv" checked />
-                    <label for="skip_pyenv">pyenv</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_rbenv" checked />
-                    <label for="skip_rbenv">rbenv</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_goenv" checked />
-                    <label for="skip_goenv">goenv</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_jenv" checked />
-                    <label for="skip_jenv">jenv</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_sdk" checked />
-                    <label for="skip_sdk">SDKMAN</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_tfenv" checked />
-                    <label for="skip_tfenv">tfenv</label>
-                </div>
-            </div>
-        </div>
-
-        <!-- Cloud & Infrastructure -->
-        <div class="category">
-            <h3>Cloud & Infrastructure</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_docker" checked />
-                    <label for="skip_docker">Docker</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_helm" checked />
-                    <label for="skip_helm">Helm</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_kubectl" checked />
-                    <label for="skip_kubectl">kubectl</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_gh" checked />
-                    <label for="skip_gh">GitHub CLI</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_gcloud" checked />
-                    <label for="skip_gcloud">Google Cloud SDK</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_aws" checked />
-                    <label for="skip_aws">AWS CLI</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_az" checked />
-                    <label for="skip_az">Azure CLI</label>
-                </div>
-            </div>
-        </div>
-
-        <!-- Development Tools -->
-        <div class="category">
-            <h3>Development Tools</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_code" checked />
-                    <label for="skip_code">VS Code</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_pod" checked />
-                    <label for="skip_pod">CocoaPods</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_flutter" checked />
-                    <label for="skip_flutter">Flutter</label>
-                </div>
-            </div>
-        </div>
-
-        <!-- Shell & Terminal -->
-        <div class="category">
-            <h3>Shell & Terminal</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_omz" checked />
-                    <label for="skip_omz">Oh My Zsh</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_antibody" checked />
-                    <label for="skip_antibody">Antibody</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_fisher" checked />
-                    <label for="skip_fisher">Fisher</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_starship" checked />
-                    <label for="skip_starship">Starship</label>
-                </div>
-            </div>
-        </div>
-
-        <!-- macOS System -->
-        <div class="category">
-            <h3>macOS System</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_xcode_select" checked />
-                    <label for="skip_xcode_select">Xcode Command Line Tools</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_softwareupdate" checked />
-                    <label for="skip_softwareupdate">Software Update</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_disk_maintenance" checked />
-                    <label for="skip_disk_maintenance">Disk Maintenance</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_system_maintenance" checked />
-                    <label for="skip_system_maintenance">System Maintenance</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_spotlight" checked />
-                    <label for="skip_spotlight">Spotlight Rebuild</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_launchpad" checked />
-                    <label for="skip_launchpad">Launchpad Reset</label>
-                </div>
-            </div>
-        </div>
-
-        <!-- Other -->
-        <div class="category">
-            <h3>Other</h3>
-            <div class="options">
-                <div class="option">
-                    <input type="checkbox" id="skip_self_update" checked />
-                    <label for="skip_self_update">Self-Update htotheizzo</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_kav" checked />
-                    <label for="skip_kav">Kaspersky</label>
-                </div>
-                <div class="option">
-                    <input type="checkbox" id="skip_apm" checked />
-                    <label for="skip_apm">Atom (apm)</label>
-                </div>
-            </div>
-        </div>
-
-        <div class="buttons">
-            <button id="unselectAll" class="secondary">Unselect All</button>
-            <button id="runUpdate" class="primary">Run Updates</button>
-        </div>
-
-        <div style="text-align: center; margin-top: 10px;">
-            <label style="font-size: 14px; color: #666;">
-                <input type="checkbox" id="mockMode" style="margin-right: 5px;" />
-                Mock Mode (dry run - log commands without executing)
-            </label>
-        </div>
-
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <div>Running updates...</div>
-        </div>
-
-        <div id="output" class="output"></div>
     </div>
 
     <script src="renderer.js"></script>

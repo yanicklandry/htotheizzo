@@ -7,8 +7,9 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 600,
+    height: 700,
+    resizable: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -17,12 +18,12 @@ function createWindow() {
   });
 
   mainWindow.loadFile('index.html');
-  
+
   // Open DevTools in development mode
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
-  
+
   // Clear cache to avoid stale code issues
   mainWindow.webContents.session.clearCache();
 }

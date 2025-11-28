@@ -207,9 +207,32 @@ mac_disk_maintenance() {
     fi
     log "User cache size: $cache_size"
     # More selective cache cleanup - only clear specific safe directories
-    find ~/Library/Caches -name "*.tmp" -type f -delete 2>/dev/null || true
-    find ~/Library/Caches -name "*.cache" -type f -delete 2>/dev/null || true
-    find ~/Library/Caches -name "*.log" -type f -delete 2>/dev/null || true
+    # Combine find operations into one command for better performance
+    log "Removing temporary cache files (this may take a while for large caches)..."
+    # Use timeout to prevent indefinite hanging (max 5 minutes)
+    if command -v gtimeout >/dev/null 2>&1; then
+      gtimeout 300 find ~/Library/Caches \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
+    elif command -v timeout >/dev/null 2>&1; then
+      timeout 300 find ~/Library/Caches \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
+    else
+      # Fallback without timeout - use background process with manual timeout
+      find ~/Library/Caches \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null &
+      local find_pid=$!
+      local elapsed=0
+      while kill -0 $find_pid 2>/dev/null && [ $elapsed -lt 300 ]; do
+        sleep 5
+        elapsed=$((elapsed + 5))
+        if [ $((elapsed % 30)) -eq 0 ]; then
+          log "Still cleaning caches... (${elapsed}s elapsed)"
+        fi
+      done
+      if kill -0 $find_pid 2>/dev/null; then
+        log "Warning: cache cleanup taking too long, killing process"
+        kill $find_pid 2>/dev/null || true
+      fi
+      wait $find_pid 2>/dev/null || log "Warning: cache cleanup completed with warnings"
+    fi
+    log "Cache cleanup completed"
   fi
 }
 
