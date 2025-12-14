@@ -369,7 +369,7 @@ update() {
 
     if [[ -z "${skip_softwareupdate:-}" ]] && command_exists softwareupdate; then
       log "Updating Apple Software Update"
-      softwareupdate --install --all || log "Warning: softwareupdate failed"
+      softwareupdate --install --all --verbose || log "Warning: softwareupdate failed"
     elif [[ -n "${skip_softwareupdate:-}" ]]; then
       log "Skipped softwareupdate"
     fi
