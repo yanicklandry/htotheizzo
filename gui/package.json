@@ -10,7 +10,15 @@
   "keywords": ["htotheizzo", "updates", "automation", "gui"],
   "author": "htotheizzo",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yanicklandry/htotheizzo.git"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "devDependencies": {
-    "electron": "^27.0.0"
+    "electron": "^39.0.0"
   }
 }

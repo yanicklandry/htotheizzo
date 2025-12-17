@@ -169,20 +169,19 @@ update_vscode_ext() {
 
 update_homebrew() {
   local with_casks="${1:-false}"
-  
+
   if [[ "$with_casks" == "true" ]]; then
     log "Updating Homebrew with casks..."
   else
     log "Updating Homebrew..."
   fi
-  
-  brew update || log "Warning: brew update failed"
-  
+
+  # Note: brew upgrade automatically runs brew update first (since Homebrew 1.0)
   if [[ "$with_casks" == "true" ]]; then
     brew outdated --greedy || log "Warning: brew outdated failed"
     brew upgrade --cask --greedy || log "Warning: brew cask upgrade failed"
   fi
-  
+
   brew upgrade || log "Warning: brew upgrade failed"
   brew cleanup -s || log "Warning: brew cleanup failed"
 }
@@ -575,10 +574,30 @@ update() {
     composer clear-cache || log "Warning: composer cache clear failed"
   fi
 
-  # Docker cleanup
+  # Container cleanup (Docker Desktop, OrbStack, Podman)
   if command_exists docker; then
-    log "Cleaning up Docker..."
-    docker system prune -af --volumes || log "Warning: docker system prune failed"
+    # Check if Docker daemon is actually running
+    if ! docker info &>/dev/null; then
+      log "Docker command found but daemon is not running (skipping cleanup)"
+    else
+      # Detect which container runtime is being used
+      if pgrep -q "OrbStack"; then
+        log "Cleaning up OrbStack containers..."
+      elif command_exists podman && docker --version 2>/dev/null | grep -q "podman"; then
+        log "Cleaning up Podman containers..."
+      else
+        log "Cleaning up Docker containers..."
+      fi
+      docker system prune -af --volumes || log "Warning: docker system prune failed"
+    fi
+  elif command_exists podman; then
+    # Podman without docker alias - check if running
+    if ! podman info &>/dev/null; then
+      log "Podman command found but service is not running (skipping cleanup)"
+    else
+      log "Cleaning up Podman containers..."
+      podman system prune -af --volumes || log "Warning: podman system prune failed"
+    fi
   fi
 
   # asdf version manager
@@ -675,7 +694,7 @@ update() {
   # Poetry (Python dependency manager)
   if command_exists poetry; then
     log "Updating Poetry..."
-    poetry self update || log "Warning: poetry self update failed"
+    poetry self-update || log "Warning: poetry self-update failed"
   fi
 
   # PDM (Python dependency manager)
@@ -684,10 +703,16 @@ update() {
     pdm self update || log "Warning: pdm self update failed"
   fi
 
-  # uv (Fast Python package installer)
+  # uv (Fast Python package installer and uvx tool runner)
   if command_exists uv; then
-    log "Updating uv..."
+    log "Updating uv (includes uvx)..."
     uv self update || log "Warning: uv self update failed"
+  fi
+
+  # pixi (Fast multi-language package manager built on conda ecosystem)
+  if command_exists pixi; then
+    log "Updating pixi..."
+    pixi self-update || log "Warning: pixi self-update failed"
   fi
 
   # GitHub CLI
@@ -738,6 +763,19 @@ update() {
     log "Updating mise..."
     mise self-update || log "Warning: mise self-update failed"
     mise plugins update || log "Warning: mise plugins update failed"
+  fi
+
+  # proto - multi-language version manager (Rust-based alternative to asdf/mise)
+  if command_exists proto; then
+    log "Updating proto..."
+    proto upgrade || log "Warning: proto upgrade failed"
+    proto plugin upgrade || log "Warning: proto plugin upgrade failed"
+  fi
+
+  # pkgx - run anything, anywhere package runner
+  if command_exists pkgx; then
+    log "Updating pkgx..."
+    pkgx --sync || log "Warning: pkgx sync failed"
   fi
 
   # Zinit (Zsh plugin manager)

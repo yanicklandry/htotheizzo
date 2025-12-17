@@ -4,14 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-htotheizzo is a comprehensive system update automation script that updates multiple package managers and development tools across macOS, Linux, and Windows systems. It handles 50+ package managers and tools including:
+htotheizzo is a comprehensive system update automation script that updates multiple package managers and development tools across macOS, Linux, and Windows systems. It handles 60+ package managers and tools including:
 
 - **System packages**: Homebrew, apt-get, Snap, Flatpak, Mac App Store
-- **Language ecosystems**: npm/yarn/pnpm/Bun/Deno, pip/pipenv/conda, gem, Rust/Cargo, Composer, CPAN
-- **Version managers**: asdf, nvm, pyenv, rbenv, rvm, SDKMAN, tfenv
-- **Infrastructure tools**: Docker, Helm, Flutter
+- **Language ecosystems**: npm/yarn/pnpm/Bun/Deno, pip/pipenv/conda/pixi, gem, Rust/Cargo, Composer, CPAN
+- **Version managers**: asdf, mise, proto, nvm, pyenv, rbenv, rvm, SDKMAN, tfenv
+- **Infrastructure tools**: Docker, OrbStack, Podman, Helm, Flutter
 - **Development tools**: VS Code, CocoaPods, tmux plugins
 - **System maintenance**: Cache cleanup, log rotation, disk verification (macOS)
+- **Package runners**: pkgx
 
 All in a single command with intelligent error handling and skip options.
 
@@ -22,7 +23,7 @@ The codebase consists of shell scripts and a modern GUI:
 - `htotheizzo.sh` - Main update script with OS detection and comprehensive package manager updates
 - `htotheizzo-gui.sh` - Electron GUI launcher script
 - `gui/` - Electron-based GUI application with modern interface
-- `update.sh` - Windows-specific update script using Chocolatey and Windows Update
+- `update.sh` - Windows-specific update script using Chocolatey, Winget, Scoop, and Windows Update
 - `repair.sh` - macOS disk repair utility
 
 ### Main Script Structure (`htotheizzo.sh`)
@@ -140,8 +141,11 @@ crontab -e
 ### Windows Updates
 
 ```bash
-# Windows-specific updates (Chocolatey and Windows Update)
+# Windows-specific updates (Chocolatey, Winget, Scoop, and Windows Update)
 ./update.sh
+
+# Skip specific package managers
+skip_choco=1 skip_winget=1 ./update.sh
 ```
 
 ### macOS Disk Repair
@@ -183,7 +187,8 @@ The script supports skipping specific package managers using environment variabl
 - `skip_go=1` - Skip Go/Golang updates
 - `skip_poetry=1` - Skip Poetry updates
 - `skip_pdm=1` - Skip PDM updates
-- `skip_uv=1` - Skip uv updates
+- `skip_uv=1` - Skip uv/uvx updates
+- `skip_pixi=1` - Skip pixi updates
 - `skip_gh=1` - Skip GitHub CLI extension updates
 - `skip_gcloud=1` - Skip Google Cloud SDK updates
 - `skip_aws=1` - Skip AWS CLI detection
@@ -192,6 +197,12 @@ The script supports skipping specific package managers using environment variabl
 - `skip_port=1` - Skip MacPorts updates
 - `skip_nix-env=1` - Skip Nix package manager updates
 - `skip_mise=1` - Skip mise version manager updates
+- `skip_proto=1` - Skip proto version manager updates
+- `skip_pkgx=1` - Skip pkgx updates
+- `skip_podman=1` - Skip Podman cleanup
+- `skip_choco=1` - Skip Chocolatey updates (Windows)
+- `skip_winget=1` - Skip Winget updates (Windows)
+- `skip_scoop=1` - Skip Scoop updates (Windows)
 - `skip_antibody=1` - Skip Antibody updates
 - `skip_fisher=1` - Skip Fisher updates
 - `skip_starship=1` - Skip Starship detection
@@ -239,9 +250,10 @@ The script supports skipping specific package managers using environment variabl
 - pipenv (cache clearing)
 - pyenv (Python version manager)
 - Conda/Mamba (Python environment managers)
+- pixi (fast multi-language package manager built on conda ecosystem)
 - Poetry (modern dependency manager with self-update)
 - PDM (modern dependency manager with self-update)
-- uv (fast package installer with self-update)
+- uv (fast package installer with self-update, includes uvx for running Python apps)
 
 **Ruby:**
 - gem (system gems with cleanup)
@@ -264,7 +276,7 @@ The script supports skipping specific package managers using environment variabl
 - jenv (Java version manager)
 
 **Infrastructure/DevOps:**
-- Docker (system prune for unused images/containers/volumes)
+- Docker Desktop, OrbStack, or Podman (system prune for unused images/containers/volumes)
 - Helm (Kubernetes package manager repository updates)
 - kubectl (Kubernetes CLI - detected, updated via package managers)
 - Terraform (tfenv version manager)
@@ -278,6 +290,7 @@ The script supports skipping specific package managers using environment variabl
 **Multi-Language Version Managers:**
 - asdf (universal version manager with plugin updates)
 - mise (formerly rtx - modern polyglot version manager)
+- proto (Rust-based multi-language version manager with plugin support)
 
 **Language-Specific Version Managers:**
 - nvm (Node version manager)
@@ -293,6 +306,9 @@ The script supports skipping specific package managers using environment variabl
 **Package Manager Alternatives:**
 - MacPorts (macOS package manager - alternative to Homebrew)
 - Nix (cross-platform functional package manager)
+
+**Package Runners:**
+- pkgx (run anything, anywhere - 4MB standalone binary)
 
 **Shell Customization:**
 - Oh My ZSH (Zsh framework with omz command)
