@@ -183,6 +183,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateProgress(percent, text) {
         progressFill.style.width = percent + '%';
         progressText.textContent = text;
+
+        // Add 'complete' class when at 100% to stop shimmer animation
+        if (percent >= 100) {
+            progressFill.classList.add('complete');
+        } else {
+            progressFill.classList.remove('complete');
+        }
     }
 
     function appendOutput(text) {
@@ -238,16 +245,31 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function simulateProgress(outputText) {
+        // Skip if this is a "Skipping" message
+        if (outputText.includes('Skipping') || outputText.includes('skipping')) {
+            return;
+        }
+
         // Increment progress based on output
         if (outputText.includes('Updating') || outputText.includes('Installing') ||
-            outputText.includes('Upgrading') || outputText.includes('Cleaning')) {
+            outputText.includes('Upgrading') || outputText.includes('Cleaning') ||
+            outputText.includes('Performing') || outputText.includes('Running') ||
+            outputText.includes('Checking') || outputText.includes('Rebuilding') ||
+            outputText.includes('Verifying')) {
             updateCount++;
             progressPercent = Math.min(95, (updateCount / estimatedTotalUpdates) * 100);
 
-            // Extract current operation
+            // Extract current operation and strip timestamp
             const lines = outputText.trim().split('\n');
             const lastLine = lines[lines.length - 1];
-            updateProgress(progressPercent, lastLine.substring(0, 50) + '...');
+
+            // Remove timestamp pattern [YYYY-MM-DD HH:MM:SS] from the beginning
+            const cleanedLine = lastLine.replace(/^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]\s*/, '');
+
+            // Show operation name with percentage
+            const operationName = cleanedLine.length > 40 ? cleanedLine.substring(0, 40) + '...' : cleanedLine;
+            const progressMessage = `${operationName} (${Math.floor(progressPercent)}%)`;
+            updateProgress(progressPercent, progressMessage);
         }
     }
 
@@ -274,9 +296,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await electronAPI.runHtotheizzo(skipOptions);
 
             if (result.success) {
-                updateProgress(100, 'Complete!');
+                updateProgress(100, 'All updates completed successfully');
                 setStatus('Updates completed successfully!', 'success');
             } else {
+                updateProgress(0, '');
                 setStatus(`Updates failed: ${result.error.code || result.error}`, 'error');
                 if (result.error.output) {
                     appendOutput('\n--- Error Output ---\n');
@@ -289,6 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('Error running htotheizzo:', error);
+            updateProgress(0, '');
             setStatus(`Error: ${error.message}`, 'error');
             appendOutput(`Error: ${error.message}\n`);
         }
