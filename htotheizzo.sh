@@ -7,8 +7,43 @@ THISUSER=$(who am i | awk '{print $1}')
 # Mock mode - if set, commands will be logged but not executed
 MOCK_MODE="${MOCK_MODE:-}"
 
+# Error tracking array
+declare -a ERROR_LOG=()
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >&2
+
+    # Track warnings and errors
+    if [[ "$1" == Warning:* ]] || [[ "$1" == Error:* ]]; then
+        ERROR_LOG+=("$1")
+    fi
+}
+
+# Display error summary at the end
+show_error_summary() {
+    local error_count=${#ERROR_LOG[@]}
+
+    if [[ $error_count -eq 0 ]]; then
+        echo ""
+        echo "════════════════════════════════════════════════════════════════"
+        log "✓ All updates completed successfully with no errors!"
+        echo "════════════════════════════════════════════════════════════════"
+        echo ""
+    else
+        echo ""
+        echo "════════════════════════════════════════════════════════════════"
+        log "⚠ Updates completed with $error_count warning(s)/error(s):"
+        echo "════════════════════════════════════════════════════════════════"
+
+        local counter=1
+        for error in "${ERROR_LOG[@]}"; do
+            echo "  $counter. $error" >&2
+            ((counter++))
+        done
+
+        echo "════════════════════════════════════════════════════════════════"
+        echo ""
+    fi
 }
 
 # Execute command or mock it
@@ -179,7 +214,21 @@ update_homebrew() {
   # Note: brew upgrade automatically runs brew update first (since Homebrew 1.0)
   if [[ "$with_casks" == "true" ]]; then
     brew outdated --greedy || log "Warning: brew outdated failed"
-    brew upgrade --cask --greedy || log "Warning: brew cask upgrade failed"
+
+    # Capture cask upgrade errors with details
+    local cask_output
+    local cask_exit_code=0
+    cask_output=$(brew upgrade --cask --greedy 2>&1) || cask_exit_code=$?
+
+    if [[ $cask_exit_code -ne 0 ]]; then
+      # Extract failed cask names from error output
+      local failed_casks=$(echo "$cask_output" | grep -oE "Cask '[^']+'" | sed "s/Cask '//" | sed "s/'$//" | tr '\n' ', ' | sed 's/,$//')
+      if [[ -n "$failed_casks" ]]; then
+        log "Warning: brew cask upgrade failed for: $failed_casks"
+      else
+        log "Warning: brew cask upgrade failed"
+      fi
+    fi
   fi
 
   brew upgrade || log "Warning: brew upgrade failed"
@@ -511,8 +560,20 @@ update() {
   if command_exists pip; then
     log "Updating pip packages..."
     export PIP_REQUIRE_VIRTUALENV=false
-    pip install --upgrade pip --user || log "Warning: pip self-update failed"
-    
+
+    local pip_output
+    local pip_exit_code=0
+    pip_output=$(pip install --upgrade pip --user 2>&1) || pip_exit_code=$?
+
+    if [[ $pip_exit_code -ne 0 ]]; then
+      # Check for externally-managed environment
+      if echo "$pip_output" | grep -q "externally-managed-environment"; then
+        log "Warning: pip self-update failed (externally-managed by system/Homebrew)"
+      else
+        log "Warning: pip self-update failed"
+      fi
+    fi
+
     # Update user packages more safely
     local pip_packages
     pip_packages=$(pip freeze --user | cut -d'=' -f1 2>/dev/null || echo "")
@@ -525,8 +586,20 @@ update() {
   if command_exists pip3; then
     log "Updating pip3 packages..."
     export PIP_REQUIRE_VIRTUALENV=false
-    python3 -m pip install --upgrade pip --user || log "Warning: pip3 self-update failed"
-    
+
+    local pip3_output
+    local pip3_exit_code=0
+    pip3_output=$(python3 -m pip install --upgrade pip --user 2>&1) || pip3_exit_code=$?
+
+    if [[ $pip3_exit_code -ne 0 ]]; then
+      # Check for externally-managed environment
+      if echo "$pip3_output" | grep -q "externally-managed-environment"; then
+        log "Warning: pip3 self-update failed (externally-managed by system/Homebrew)"
+      else
+        log "Warning: pip3 self-update failed"
+      fi
+    fi
+
     # Update user packages more safely
     local pip3_packages
     pip3_packages=$(pip3 freeze --user | cut -d'=' -f1 2>/dev/null || echo "")
@@ -848,7 +921,23 @@ update() {
 
   if command_exists gem; then
     log "Updating ruby gems..."
-    sudo gem update || log "Warning: gem update failed"
+
+    local gem_output
+    local gem_exit_code=0
+    gem_output=$(sudo gem update 2>&1) || gem_exit_code=$?
+
+    if [[ $gem_exit_code -ne 0 ]]; then
+      # Extract failed gem names and reasons
+      local failed_gems=$(echo "$gem_output" | grep -oE "Error installing [^:]+:" | sed 's/Error installing //' | sed 's/://' | tr '\n' ', ' | sed 's/,$//')
+      local ruby_version_issue=$(echo "$gem_output" | grep -q "requires Ruby version" && echo " (Ruby version incompatibility)")
+
+      if [[ -n "$failed_gems" ]]; then
+        log "Warning: gem update failed for: $failed_gems$ruby_version_issue"
+      else
+        log "Warning: gem update failed$ruby_version_issue"
+      fi
+    fi
+
     sudo gem cleanup || log "Warning: gem cleanup failed"
   fi
 
@@ -857,6 +946,9 @@ update() {
   fi
 
   log "htotheizzo is complete, you got 99 problems but updates ain't one"
+
+  # Show error summary
+  show_error_summary
 }
 
 main() {

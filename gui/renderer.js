@@ -152,6 +152,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const advancedToggle = document.getElementById('advancedToggle');
     const advancedContent = document.getElementById('advancedContent');
     const terminalToggle = document.getElementById('terminalToggle');
+    const errorSummary = document.getElementById('errorSummary');
+    const errorSummaryHeader = document.getElementById('errorSummaryHeader');
+    const errorList = document.getElementById('errorList');
+
+    // Track errors during execution
+    let errorMessages = [];
 
     // Toggle handlers
     advancedToggle.addEventListener('click', () => {
@@ -199,6 +205,48 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function clearOutput() {
         outputEl.textContent = '';
+    }
+
+    function clearErrors() {
+        errorMessages = [];
+        errorSummary.classList.remove('visible', 'success');
+        errorList.innerHTML = '';
+        errorSummaryHeader.textContent = '';
+    }
+
+    function parseErrorsFromOutput(text) {
+        // Extract warning messages
+        const warningMatches = text.match(/Warning: [^\n]+/g);
+        if (warningMatches) {
+            warningMatches.forEach(warning => {
+                // Remove "Warning: " prefix for cleaner display
+                const cleanWarning = warning.replace(/^Warning:\s*/, '');
+                if (!errorMessages.includes(cleanWarning)) {
+                    errorMessages.push(cleanWarning);
+                }
+            });
+        }
+    }
+
+    function displayErrorSummary() {
+        if (errorMessages.length === 0) {
+            // Show success message
+            errorSummary.classList.add('visible', 'success');
+            errorSummaryHeader.textContent = '✓ All updates completed successfully with no errors!';
+            errorList.innerHTML = '';
+        } else {
+            // Show error list
+            errorSummary.classList.add('visible');
+            errorSummary.classList.remove('success');
+            errorSummaryHeader.textContent = `⚠ ${errorMessages.length} warning(s)/error(s) occurred:`;
+
+            errorList.innerHTML = '';
+            errorMessages.forEach(error => {
+                const li = document.createElement('li');
+                li.textContent = error;
+                errorList.appendChild(li);
+            });
+        }
     }
 
     // Collect skip options from checkboxes (send skip variable when unchecked)
@@ -283,6 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
         runUpdateBtn.disabled = true;
         setStatus('Running updates...', 'info');
         clearOutput();
+        clearErrors();
         showProgress();
         updateProgress(0, 'Initializing...');
         progressPercent = 0;
@@ -297,18 +346,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (result.success) {
                 updateProgress(100, 'All updates completed successfully');
-                setStatus('Updates completed successfully!', 'success');
+
+                // Display error summary
+                displayErrorSummary();
+
+                if (errorMessages.length === 0) {
+                    setStatus('Updates completed successfully!', 'success');
+                } else {
+                    setStatus(`Updates completed with ${errorMessages.length} warning(s)`, 'error');
+                }
             } else {
                 updateProgress(0, '');
                 setStatus(`Updates failed: ${result.error.code || result.error}`, 'error');
                 if (result.error.output) {
                     appendOutput('\n--- Error Output ---\n');
                     appendOutput(result.error.output);
+                    parseErrorsFromOutput(result.error.output);
                 }
                 if (result.error.errorOutput) {
                     appendOutput('\n--- Error Details ---\n');
                     appendOutput(result.error.errorOutput);
+                    parseErrorsFromOutput(result.error.errorOutput);
                 }
+                displayErrorSummary();
             }
         } catch (error) {
             console.error('Error running htotheizzo:', error);
@@ -326,6 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
         electronAPI.onHtotheizzo((data) => {
             appendOutput(data);
             simulateProgress(data);
+            parseErrorsFromOutput(data);
         });
     } else {
         console.error('onHtotheizzo method not available');

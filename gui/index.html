@@ -285,6 +285,55 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #777;
         }
+
+        .error-summary {
+            display: none;
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .error-summary.visible {
+            display: block;
+        }
+
+        .error-summary.success {
+            background: #e8f5e9;
+            border-left-color: #4caf50;
+        }
+
+        .error-summary-header {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #e65100;
+        }
+
+        .error-summary.success .error-summary-header {
+            color: #2e7d32;
+        }
+
+        .error-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 12px;
+        }
+
+        .error-list li {
+            padding: 4px 0;
+            color: #5d4037;
+        }
+
+        .error-list li::before {
+            content: "⚠ ";
+            color: #ff9800;
+            margin-right: 6px;
+        }
     </style>
 </head>
 <body>
@@ -300,6 +349,11 @@
                 <div id="progressFill" class="progress-fill"></div>
             </div>
             <div id="progressText" class="progress-text">Initializing...</div>
+        </div>
+
+        <div id="errorSummary" class="error-summary">
+            <div class="error-summary-header" id="errorSummaryHeader"></div>
+            <ul class="error-list" id="errorList"></ul>
         </div>
 
         <button id="runUpdate" class="main-button">Run Updates</button>
