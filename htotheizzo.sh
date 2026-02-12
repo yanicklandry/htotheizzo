@@ -778,8 +778,14 @@ update() {
 
   # uv (Fast Python package installer and uvx tool runner)
   if command_exists uv; then
-    log "Updating uv (includes uvx)..."
-    uv self update || log "Warning: uv self update failed"
+    # Check if uv was installed via Homebrew (which will update it automatically)
+    uv_path=$(which uv)
+    if [[ "$uv_path" =~ (/opt/homebrew|/usr/local|/home/linuxbrew) ]]; then
+      log "Skipping uv self-update (managed by Homebrew)"
+    else
+      log "Updating uv (includes uvx)..."
+      uv self update || log "Warning: uv self update failed"
+    fi
   fi
 
   # pixi (Fast multi-language package manager built on conda ecosystem)
