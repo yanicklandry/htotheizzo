@@ -975,12 +975,6 @@ update() {
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     log "Hey there Mac user. At least it's not Windows."
 
-    # Test sudo access
-    if ! sudo -n true 2>/dev/null; then
-      log "Requesting sudo access..."
-      sudo echo "Got sudo."
-    fi
-
     # Install Apple Command Line Tools (necessary after an update)
     if [[ -z "${skip_xcode_select:-}" ]] && command_exists xcode-select; then
       log "Updating Apple Command Line Tools..."

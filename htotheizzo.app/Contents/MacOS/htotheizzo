@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# htotheizzo.app launcher
+# Resolves symlinks to find the real script location, then launches the Electron GUI.
+# Sources the user's shell profile so Homebrew/node/npm are in PATH when launched
+# from Finder or the Dock (which provide a bare minimal environment).
+
+# Source shell profile to pick up Homebrew, nvm, and other PATH setup
+[ -f "$HOME/.zprofile" ]      && source "$HOME/.zprofile"      2>/dev/null || true
+[ -f "$HOME/.bash_profile" ]  && source "$HOME/.bash_profile"  2>/dev/null || true
+[ -f "$HOME/.profile" ]       && source "$HOME/.profile"       2>/dev/null || true
+
+# Prepend common Homebrew locations (Apple Silicon and Intel Macs)
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:$PATH"
+
+# If node still isn't found, try locating it via nvm
+if ! command -v node >/dev/null 2>&1 && [ -d "$HOME/.nvm/versions/node" ]; then
+    NVM_LATEST="$(ls -1 "$HOME/.nvm/versions/node" | sort -V | tail -1)"
+    [ -n "$NVM_LATEST" ] && export PATH="$HOME/.nvm/versions/node/$NVM_LATEST/bin:$PATH"
+fi
+
+# Resolve bundle path — pwd -P follows symlinks in the directory path
+BUNDLE="$(cd "$(dirname "$0")/../.." && pwd -P)"
+SCRIPT_DIR="$(dirname "$BUNDLE")"
+GUI_LAUNCHER="$SCRIPT_DIR/htotheizzo-gui.sh"
+
+if [ ! -f "$GUI_LAUNCHER" ]; then
+    osascript -e "display alert \"htotheizzo\" message \"Could not find htotheizzo-gui.sh.\n\nExpected: $GUI_LAUNCHER\n\nMake sure htotheizzo.app is inside the htotheizzo repository directory.\" as critical"
+    exit 1
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+    osascript -e "display alert \"htotheizzo\" message \"Node.js was not found in PATH.\n\nInstall it via Homebrew:  brew install node\nor via nvm:  nvm install --lts\" as critical"
+    exit 1
+fi
+
+exec "$GUI_LAUNCHER"

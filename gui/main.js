@@ -8,7 +8,7 @@ let mainWindow;
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 600,
-    height: 850,
+    height: 670,
     resizable: false,
     webPreferences: {
       nodeIntegration: false,
@@ -111,10 +111,6 @@ ipcMain.handle('request-sudo', async () => {
 
 ipcMain.handle('run-htotheizzo', async (event, options) => {
   try {
-    // First request sudo access
-    await requestSudoAccess();
-    
-    // Then run htotheizzo
     const result = await runHtotheizzo(options);
     return { success: true, ...result };
   } catch (error) {
