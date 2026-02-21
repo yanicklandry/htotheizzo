@@ -85,6 +85,8 @@ Launch the modern Electron GUI:
 htotheizzo-gui
 ```
 
+![htotheizzo GUI](docs/gui-screenshot.png)
+
 The GUI provides:
 - Visual interface with checkboxes for all package managers
 - Real-time update progress display
