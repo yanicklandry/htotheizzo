@@ -334,6 +334,65 @@
             color: #ff9800;
             margin-right: 6px;
         }
+
+        .settings-grid {
+            display: grid;
+            gap: 12px;
+            padding: 10px;
+            background: #fafafa;
+            border-radius: 8px;
+        }
+
+        .setting {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .setting label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .setting input[type="text"],
+        .setting select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            background: white;
+        }
+
+        .setting input[type="text"]:focus,
+        .setting select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .action-button {
+            padding: 10px;
+            border: 1px solid #667eea;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            background: white;
+            color: #667eea;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .action-button:hover {
+            background: #667eea;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -371,6 +430,25 @@
 
             <div class="options-grid" id="optionsGrid">
                 <!-- Options will be dynamically populated -->
+            </div>
+        </div>
+
+        <div class="toggle-section" id="settingsToggle">
+            <label>Settings</label>
+            <span class="toggle-icon">▼</span>
+        </div>
+
+        <div id="settingsContent" class="collapsible-content">
+            <div class="settings-grid">
+                <div class="setting">
+                    <label for="logFilePath">Log File Location:</label>
+                    <input type="text" id="logFilePath" value="~/logs/htotheizzo.log" placeholder="~/logs/htotheizzo.log" />
+                </div>
+
+                <div class="action-buttons">
+                    <button id="createSnapshotBtn" class="action-button">Create Snapshot</button>
+                    <button id="showCronBtn" class="action-button">Show Cron Info</button>
+                </div>
             </div>
         </div>
 

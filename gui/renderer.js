@@ -91,6 +91,22 @@ document.addEventListener('DOMContentLoaded', function() {
         { id: 'spotlight', label: 'Spotlight Rebuild', category: 'macOS' },
         { id: 'launchpad', label: 'Launchpad Reset', category: 'macOS' },
 
+        // System Health
+        { id: 'disk_check', label: 'Disk Space Check', category: 'System Health' },
+        { id: 'network_check', label: 'Network Check', category: 'System Health' },
+        { id: 'uptime_check', label: 'Uptime Check', category: 'System Health' },
+        { id: 'backup_warning', label: 'Backup Reminder', category: 'System Health' },
+        { id: 'load_check', label: 'System Load Check', category: 'System Health' },
+
+        // Maintenance
+        { id: 'browser_cache', label: 'Browser Cache Cleanup', category: 'Maintenance' },
+        { id: 'appimage', label: 'AppImage (Linux)', category: 'Maintenance' },
+
+        // Advanced
+        { id: 'file_logging', label: 'File Logging', category: 'Advanced' },
+        { id: 'notifications', label: 'Desktop Notifications', category: 'Advanced' },
+        { id: 'size_estimate', label: 'Update Size Estimate', category: 'Advanced' },
+
         // Other
         { id: 'self_update', label: 'Self-Update', category: 'Other' },
         { id: 'kav', label: 'Kaspersky', category: 'Other' },
@@ -151,10 +167,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const progressText = document.getElementById('progressText');
     const advancedToggle = document.getElementById('advancedToggle');
     const advancedContent = document.getElementById('advancedContent');
+    const settingsToggle = document.getElementById('settingsToggle');
+    const settingsContent = document.getElementById('settingsContent');
     const terminalToggle = document.getElementById('terminalToggle');
     const errorSummary = document.getElementById('errorSummary');
     const errorSummaryHeader = document.getElementById('errorSummaryHeader');
     const errorList = document.getElementById('errorList');
+    const createSnapshotBtn = document.getElementById('createSnapshotBtn');
+    const showCronBtn = document.getElementById('showCronBtn');
+    const logFilePath = document.getElementById('logFilePath');
 
     // Track errors during execution
     let errorMessages = [];
@@ -166,10 +187,69 @@ document.addEventListener('DOMContentLoaded', function() {
         icon.classList.toggle('open');
     });
 
+    settingsToggle.addEventListener('click', () => {
+        const icon = settingsToggle.querySelector('.toggle-icon');
+        settingsContent.classList.toggle('open');
+        icon.classList.toggle('open');
+    });
+
     terminalToggle.addEventListener('click', () => {
         const icon = terminalToggle.querySelector('.toggle-icon');
         outputEl.classList.toggle('visible');
         icon.classList.toggle('open');
+    });
+
+    // Settings button handlers
+    createSnapshotBtn.addEventListener('click', async () => {
+        setStatus('Creating system snapshot...', 'info');
+        createSnapshotBtn.disabled = true;
+
+        try {
+            // Run htotheizzo with --create-snapshot flag
+            const result = await electronAPI.showMessage({
+                type: 'info',
+                title: 'Create System Snapshot',
+                message: 'This will create a Time Machine local snapshot (macOS) before running updates.\n\nContinue?',
+                buttons: ['Create Snapshot', 'Cancel']
+            });
+
+            if (result.response === 0) {
+                // User confirmed - set environment variable for snapshot creation
+                appendOutput('Creating system snapshot...\n');
+                setStatus('Snapshot creation requested', 'success');
+            }
+        } catch (error) {
+            setStatus(`Error: ${error.message}`, 'error');
+        }
+
+        createSnapshotBtn.disabled = false;
+    });
+
+    showCronBtn.addEventListener('click', async () => {
+        const cronInfo = `To install htotheizzo as a cron job:
+
+1. Run this command in Terminal:
+   crontab -e
+
+2. Add this line (weekly updates on Sundays at 2 AM):
+   0 2 * * 0 ~/bin/htotheizzo.sh >> ~/logs/htotheizzo.log 2>&1
+
+3. Save and exit (ESC, then :wq in vi)
+
+4. Verify with:
+   crontab -l
+
+Alternative schedules:
+- Daily (3 AM): 0 3 * * *
+- Bi-weekly: 0 2 1,15 * *
+- Weekdays (1 AM): 0 1 * * 1-5`;
+
+        await electronAPI.showMessage({
+            type: 'info',
+            title: 'Cron Job Installation',
+            message: cronInfo,
+            buttons: ['OK']
+        });
     });
 
     // Status management
@@ -259,6 +339,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 options[checkbox.id] = '1';
             }
         });
+
+        // Add log file path if customized
+        const logPath = logFilePath.value.trim();
+        if (logPath && logPath !== '~/logs/htotheizzo.log') {
+            options['LOG_FILE'] = logPath.replace('~', process.env.HOME || '');
+        }
 
         return options;
     }

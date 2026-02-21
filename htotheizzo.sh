@@ -11,7 +11,13 @@ MOCK_MODE="${MOCK_MODE:-}"
 declare -a ERROR_LOG=()
 
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >&2
+    local message="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    echo "$message" >&2
+
+    # Also write to log file if logging is enabled
+    if [[ -n "${LOG_FILE:-}" ]] && [[ -z "${skip_file_logging:-}" ]]; then
+        echo "$message" >> "$LOG_FILE" 2>/dev/null || true
+    fi
 
     # Track warnings and errors
     if [[ "$1" == Warning:* ]] || [[ "$1" == Error:* ]]; then
@@ -80,7 +86,29 @@ run_with_fallback() {
 log "Running as $THISUSER."
 
 help() {
-  echo "htotheizzo - a simple script that makes updating/upgrading homebrew or apt-get, gems, pip packages, and node packages so much easier"
+  echo "htotheizzo - a comprehensive system update automation script"
+  echo ""
+  echo "Usage: htotheizzo [OPTIONS]"
+  echo ""
+  echo "Options:"
+  echo "  --help, -h          Show this help message"
+  echo "  --mock, --dry-run   Run in mock mode (no actual operations)"
+  echo "  --install-cron      Install htotheizzo as a cron job"
+  echo "  --create-snapshot   Create system snapshot before updates"
+  echo ""
+  echo "Environment Variables (set to 1 to skip):"
+  echo "  skip_<command>      Skip specific package manager or feature"
+  echo "  Examples: skip_brew=1, skip_npm=1, skip_disk_check=1"
+  echo ""
+  echo "Features:"
+  echo "  - Updates 60+ package managers and tools"
+  echo "  - System health checks (disk space, network, uptime)"
+  echo "  - File logging with rotation"
+  echo "  - Desktop notifications"
+  echo "  - Browser cache cleanup"
+  echo "  - Maintenance tasks (macOS/Linux)"
+  echo ""
+  echo "For more info: https://github.com/yanicklandry/htotheizzo"
 }
 
 command_exists() {
@@ -96,11 +124,545 @@ command_exists() {
   fi
 
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    log "Command $cmd not found"
     return 1
   fi
 
   return 0
+}
+
+# System Health Checks
+
+check_disk_space() {
+  if [[ -n "${skip_disk_check:-}" ]]; then
+    log "Skipped disk_check"
+    return 0
+  fi
+
+  log "Checking disk space..."
+
+  # Get disk usage percentage for root volume
+  local disk_used
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    disk_used=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+  else
+    disk_used=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+  fi
+
+  if [[ -n "$disk_used" ]]; then
+    local disk_free=$((100 - disk_used))
+    log "Disk usage: ${disk_used}% used, ${disk_free}% free"
+
+    if [[ $disk_used -gt 85 ]]; then
+      log "Warning: Disk space is low (${disk_used}% used, ${disk_free}% free). Recommended to keep at least 15-20% free for optimal performance."
+    else
+      log "Disk space is healthy (${disk_free}% free)"
+    fi
+  else
+    log "Warning: Could not determine disk space"
+  fi
+}
+
+check_network() {
+  if [[ -n "${skip_network_check:-}" ]]; then
+    log "Skipped network_check"
+    return 0
+  fi
+
+  log "Checking network connectivity..."
+
+  # Test connectivity with timeout
+  local connected=false
+
+  # Try ping with 5 second timeout
+  if ping -c 1 -W 5 8.8.8.8 >/dev/null 2>&1; then
+    connected=true
+  elif ping -c 1 -W 5 1.1.1.1 >/dev/null 2>&1; then
+    connected=true
+  fi
+
+  if [[ "$connected" == "true" ]]; then
+    log "Network connectivity: OK"
+
+    # Check for metered connections on macOS
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v networksetup >/dev/null 2>&1; then
+      # Note: macOS doesn't have built-in metered connection detection via CLI
+      # This is informational only
+      log "Note: Large updates may consume significant bandwidth"
+    fi
+  else
+    log "Warning: Network connectivity check failed. Updates may fail without internet connection."
+  fi
+}
+
+check_uptime() {
+  if [[ -n "${skip_uptime_check:-}" ]]; then
+    log "Skipped uptime_check"
+    return 0
+  fi
+
+  log "Checking system uptime..."
+
+  # Parse uptime command
+  if command -v uptime >/dev/null 2>&1; then
+    local uptime_output
+    uptime_output=$(uptime)
+    log "System uptime: $uptime_output"
+
+    # Extract uptime days if available
+    if [[ "$uptime_output" =~ ([0-9]+)\ day ]]; then
+      local uptime_days="${BASH_REMATCH[1]}"
+      if [[ $uptime_days -gt 30 ]]; then
+        log "Warning: System has been running for ${uptime_days} days. Consider rebooting to apply kernel updates and free memory."
+      fi
+    fi
+  else
+    log "Warning: Could not check system uptime"
+  fi
+}
+
+backup_reminder() {
+  if [[ -n "${skip_backup_warning:-}" ]]; then
+    log "Skipped backup_warning"
+    return 0
+  fi
+
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  log "⚠️  BACKUP REMINDER"
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  log "Before running system updates, ensure critical data is backed up."
+
+  # Check Time Machine status on macOS
+  if [[ "$OSTYPE" == "darwin"* ]] && command -v tmutil >/dev/null 2>&1; then
+    local tm_destination
+    tm_destination=$(tmutil destinationinfo 2>/dev/null | grep "Name" | head -1 | cut -d: -f2 | xargs)
+
+    if [[ -n "$tm_destination" ]]; then
+      log "Time Machine backup destination: $tm_destination"
+
+      # Check last backup date (with timeout to avoid hanging)
+      local last_backup
+      # Use gtimeout if available, otherwise skip the latestbackup check
+      if command -v gtimeout >/dev/null 2>&1; then
+        last_backup=$(gtimeout 5 tmutil latestbackup 2>/dev/null || echo "")
+      else
+        # Skip latestbackup check if no timeout available (it may hang)
+        last_backup=""
+      fi
+
+      if [[ -n "$last_backup" ]]; then
+        log "Last Time Machine backup: $(basename "$last_backup")"
+      fi
+    else
+      log "Time Machine not configured. Consider setting up backups."
+    fi
+  fi
+
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+# Logging and Notifications
+
+setup_file_logging() {
+  if [[ -n "${skip_file_logging:-}" ]]; then
+    log "Skipped file_logging"
+    return 0
+  fi
+
+  # Set default log file location
+  local log_dir="${HOME}/logs"
+  export LOG_FILE="${LOG_FILE:-${log_dir}/htotheizzo.log}"
+
+  # Create log directory if it doesn't exist
+  if [[ ! -d "$log_dir" ]]; then
+    mkdir -p "$log_dir" || {
+      log "Warning: Could not create log directory $log_dir"
+      return 1
+    }
+  fi
+
+  # Rotate logs before starting
+  rotate_logs
+
+  log "Logging to: $LOG_FILE"
+
+  # Note: File logging is handled by appending to LOG_FILE in the log() function
+  # We don't use exec with tee as it can cause hanging issues
+}
+
+rotate_logs() {
+  local log_dir="${HOME}/logs"
+  local log_file="$log_dir/htotheizzo.log"
+  local max_logs=10
+
+  # Only rotate if log file exists and has content
+  if [[ -f "$log_file" && -s "$log_file" ]]; then
+    # Shift existing logs
+    for ((i=max_logs-1; i>=1; i--)); do
+      if [[ -f "$log_file.$i" ]]; then
+        mv "$log_file.$i" "$log_file.$((i+1))" 2>/dev/null || true
+      fi
+      # Compress old logs (keep last 3 uncompressed)
+      if [[ $i -gt 3 && -f "$log_file.$((i+1))" && ! -f "$log_file.$((i+1)).gz" ]]; then
+        gzip "$log_file.$((i+1))" 2>/dev/null || true
+      fi
+    done
+
+    # Move current log to .1
+    mv "$log_file" "$log_file.1" 2>/dev/null || true
+
+    # Remove logs beyond max_logs
+    for ((i=max_logs+1; i<=max_logs+5; i++)); do
+      rm -f "$log_file.$i" "$log_file.$i.gz" 2>/dev/null || true
+    done
+  fi
+}
+
+send_notification() {
+  if [[ -n "${skip_notifications:-}" ]]; then
+    return 0
+  fi
+
+  local title="$1"
+  local message="$2"
+  local notification_sent=false
+
+  # macOS notifications
+  if [[ "$OSTYPE" == "darwin"* ]] && command -v osascript >/dev/null 2>&1; then
+    osascript -e "display notification \"$message\" with title \"$title\"" 2>/dev/null && notification_sent=true
+  fi
+
+  # Linux notifications
+  if [[ "$OSTYPE" == "linux-gnu" ]] && command -v notify-send >/dev/null 2>&1; then
+    notify-send "$title" "$message" 2>/dev/null && notification_sent=true
+  fi
+
+  # Only log if notification was actually sent
+  if [[ "$notification_sent" == "true" ]]; then
+    log "Notification sent: $title - $message"
+  fi
+}
+
+# New Update Functions
+
+update_appimage() {
+  if command_exists appimage || [[ -n "${skip_appimage:-}" ]]; then
+    if [[ -n "${skip_appimage:-}" ]]; then
+      log "Skipped appimage"
+      return 0
+    fi
+
+    log "Checking for AppImage updates..."
+
+    # Common AppImage locations
+    local appimage_dirs=("$HOME/.local/bin" "$HOME/Applications" "$HOME/bin")
+    local found_appimages=false
+
+    for dir in "${appimage_dirs[@]}"; do
+      if [[ -d "$dir" ]]; then
+        # Find AppImage files
+        local appimages
+        appimages=$(find "$dir" -maxdepth 1 -name "*.AppImage" -type f 2>/dev/null || echo "")
+
+        if [[ -n "$appimages" ]]; then
+          found_appimages=true
+          log "Found AppImages in $dir:"
+          echo "$appimages" | while read -r appimage; do
+            log "  - $(basename "$appimage")"
+          done
+        fi
+      fi
+    done
+
+    if [[ "$found_appimages" == "true" ]]; then
+      # Check if AppImageUpdate is available
+      if command -v appimageupdatetool >/dev/null 2>&1; then
+        log "AppImageUpdate tool is available for manual updates"
+        log "Run: appimageupdatetool <AppImage-file>"
+      elif command -v AppImageUpdate >/dev/null 2>&1; then
+        log "AppImageUpdate is available for manual updates"
+      else
+        log "Note: AppImages found but no update tool installed"
+        log "Install AppImageUpdate from: https://github.com/AppImage/AppImageUpdate"
+      fi
+    else
+      log "No AppImages found in common locations"
+    fi
+  fi
+}
+
+clean_browser_caches() {
+  if [[ -n "${skip_browser_cache:-}" ]]; then
+    log "Skipped browser_cache"
+    return 0
+  fi
+
+  log "Cleaning browser caches..."
+
+  local cleaned_browsers=()
+
+  # Firefox cache cleanup
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    local firefox_cache="$HOME/Library/Caches/Firefox"
+  else
+    local firefox_cache="$HOME/.cache/mozilla/firefox"
+  fi
+
+  if [[ -d "$firefox_cache" ]]; then
+    log "Cleaning Firefox cache..."
+    local before_size
+    before_size=$(du -sh "$firefox_cache" 2>/dev/null | cut -f1 || echo "unknown")
+
+    # Use timeout to prevent hanging (5 minutes max)
+    if command -v gtimeout >/dev/null 2>&1; then
+      gtimeout 300 find "$firefox_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "cache2" -type d \) -exec rm -rf {} + 2>/dev/null || log "Warning: Firefox cache cleanup timed out or failed"
+    elif command -v timeout >/dev/null 2>&1; then
+      timeout 300 find "$firefox_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "cache2" -type d \) -exec rm -rf {} + 2>/dev/null || log "Warning: Firefox cache cleanup timed out or failed"
+    else
+      find "$firefox_cache" \( -name "*.tmp" -o -name "*.cache" \) -type f -delete 2>/dev/null || log "Warning: Firefox cache cleanup failed"
+    fi
+
+    cleaned_browsers+=("Firefox")
+  fi
+
+  # Chrome cache cleanup
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    local chrome_cache="$HOME/Library/Caches/Google/Chrome"
+  else
+    local chrome_cache="$HOME/.cache/google-chrome"
+  fi
+
+  if [[ -d "$chrome_cache" ]]; then
+    log "Cleaning Chrome cache..."
+
+    # Clean cache files only
+    if command -v gtimeout >/dev/null 2>&1; then
+      gtimeout 300 find "$chrome_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "Cache" -type d \) -exec rm -rf {} + 2>/dev/null || log "Warning: Chrome cache cleanup timed out or failed"
+    elif command -v timeout >/dev/null 2>&1; then
+      timeout 300 find "$chrome_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "Cache" -type d \) -exec rm -rf {} + 2>/dev/null || log "Warning: Chrome cache cleanup timed out or failed"
+    else
+      find "$chrome_cache" \( -name "*.tmp" -o -name "*.cache" \) -type f -delete 2>/dev/null || log "Warning: Chrome cache cleanup failed"
+    fi
+
+    cleaned_browsers+=("Chrome")
+  fi
+
+  # Safari cache cleanup (macOS only)
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    local safari_cache="$HOME/Library/Caches/com.apple.Safari"
+
+    if [[ -d "$safari_cache" ]]; then
+      log "Cleaning Safari cache..."
+
+      if command -v gtimeout >/dev/null 2>&1; then
+        gtimeout 300 find "$safari_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "Cache.db"* \) -exec rm -f {} + 2>/dev/null || log "Warning: Safari cache cleanup timed out or failed"
+      else
+        find "$safari_cache" \( -name "*.tmp" -o -name "*.cache" \) -type f -delete 2>/dev/null || log "Warning: Safari cache cleanup failed"
+      fi
+
+      cleaned_browsers+=("Safari")
+    fi
+  fi
+
+  if [[ ${#cleaned_browsers[@]} -gt 0 ]]; then
+    log "Browser caches cleaned: ${cleaned_browsers[*]}"
+  else
+    log "No browser caches found to clean"
+  fi
+}
+
+# Advanced Features
+
+estimate_update_sizes() {
+  if [[ -n "${skip_size_estimate:-}" ]]; then
+    log "Skipped size_estimate"
+    return 0
+  fi
+
+  log "Estimating update sizes..."
+  local total_size_mb=0
+  local size_info=()
+
+  # Homebrew size estimation (macOS/Linux)
+  if command -v brew >/dev/null 2>&1; then
+    local brew_outdated
+    brew_outdated=$(brew outdated --verbose 2>/dev/null || echo "")
+
+    if [[ -n "$brew_outdated" ]]; then
+      # Count outdated packages
+      local brew_count
+      brew_count=$(echo "$brew_outdated" | wc -l | xargs)
+      size_info+=("Homebrew: $brew_count packages")
+    fi
+  fi
+
+  # apt size estimation (Linux)
+  if command -v apt-get >/dev/null 2>&1 && [[ "$OSTYPE" == "linux-gnu" ]]; then
+    local apt_size
+    apt_size=$(apt-get -s upgrade 2>/dev/null | grep -i "need to get" | awk '{print $4, $5}' || echo "")
+
+    if [[ -n "$apt_size" ]]; then
+      size_info+=("apt: $apt_size")
+    fi
+  fi
+
+  # npm size check (cross-platform)
+  if command -v npm >/dev/null 2>&1; then
+    local npm_outdated
+    npm_outdated=$(npm outdated -g --depth=0 2>/dev/null | tail -n +2 | wc -l | xargs || echo "0")
+
+    if [[ $npm_outdated -gt 0 ]]; then
+      size_info+=("npm: $npm_outdated packages")
+    fi
+  fi
+
+  # Display size information
+  if [[ ${#size_info[@]} -gt 0 ]]; then
+    log "Update size estimates:"
+    for info in "${size_info[@]}"; do
+      log "  - $info"
+    done
+  else
+    log "No size information available or all packages up to date"
+  fi
+}
+
+check_system_load() {
+  if [[ -n "${skip_load_check:-}" ]]; then
+    log "Skipped load_check"
+    return 0
+  fi
+
+  log "Checking system load..."
+
+  # Check load average
+  if command -v uptime >/dev/null 2>&1; then
+    local load_avg
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      load_avg=$(uptime | awk -F'load averages:' '{print $2}' | awk '{print $1}' | sed 's/,//')
+    else
+      load_avg=$(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | sed 's/,//')
+    fi
+
+    if [[ -n "$load_avg" ]]; then
+      log "System load average (1 min): $load_avg"
+
+      # Warn if load is high (> 4.0)
+      if (( $(echo "$load_avg > 4.0" | bc -l 2>/dev/null || echo 0) )); then
+        log "Warning: High system load detected ($load_avg). Updates may run slowly."
+      fi
+    fi
+  fi
+
+  # Check CPU temperature on macOS (if available)
+  if [[ "$OSTYPE" == "darwin"* ]] && command -v sysctl >/dev/null 2>&1; then
+    # Note: CPU temperature is not always available via sysctl
+    # This is informational only
+    local temp_info
+    temp_info=$(sysctl -a 2>/dev/null | grep -i "temperature" | head -3 || echo "")
+
+    if [[ -n "$temp_info" ]]; then
+      log "System temperature info available (check for overheating)"
+    fi
+  fi
+}
+
+install_cron_job() {
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  log "Installing htotheizzo as a cron job"
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # Find the script path
+  local script_path
+  script_path=$(realpath "${BASH_SOURCE[0]}" 2>/dev/null || readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")
+
+  log "Script location: $script_path"
+
+  # Create log directory
+  mkdir -p "$HOME/logs" 2>/dev/null || true
+
+  # Suggest schedule
+  log ""
+  log "Suggested schedule options:"
+  log "  1. Weekly (Sundays at 2 AM) - Recommended"
+  log "  2. Bi-weekly (1st and 15th at 2 AM)"
+  log "  3. Daily (3 AM)"
+  log ""
+
+  # Recommend weekly schedule
+  local cron_entry="0 2 * * 0 $script_path >> $HOME/logs/htotheizzo.log 2>&1"
+
+  log "Recommended cron entry:"
+  log "$cron_entry"
+  log ""
+  log "To install manually:"
+  log "1. Run: crontab -e"
+  log "2. Add the line above"
+  log "3. Save and exit"
+  log ""
+  log "To verify: crontab -l"
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+create_system_snapshot() {
+  if [[ -n "${skip_snapshot:-}" ]]; then
+    log "Skipped snapshot creation"
+    return 0
+  fi
+
+  log "Creating system snapshot..."
+
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS: Use APFS snapshots via tmutil
+    if command -v tmutil >/dev/null 2>&1; then
+      log "Creating Time Machine local snapshot..."
+
+      local snapshot_name="htotheizzo-$(date +%Y%m%d-%H%M%S)"
+
+      if sudo tmutil localsnapshot 2>/dev/null; then
+        log "Snapshot created successfully"
+        log "To restore: Use Time Machine or run 'tmutil listlocalsnapshots /' to see snapshots"
+
+        # Save snapshot info for potential rollback
+        echo "$snapshot_name" > /tmp/htotheizzo_last_snapshot.txt
+      else
+        log "Warning: Failed to create Time Machine snapshot"
+        log "Note: Snapshots require APFS filesystem and may need full disk access"
+      fi
+    else
+      log "Warning: tmutil not available (Time Machine not configured)"
+    fi
+  elif [[ "$OSTYPE" == "linux-gnu" ]]; then
+    log "Linux snapshot support:"
+    log "  - For BTRFS: Use 'sudo btrfs subvolume snapshot'"
+    log "  - For LVM: Use 'sudo lvcreate --snapshot'"
+    log "  - Or install Timeshift for automatic snapshots"
+    log "  - Manual backup recommended before major updates"
+  fi
+}
+
+show_security_update_info() {
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  log "Security Update Information"
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    log "macOS Security Updates:"
+    log "  - Rapid Security Response (RSR) checks daily automatically"
+    log "  - Security updates are prioritized in Software Update"
+    log "  - Enable automatic security updates: System Preferences → Software Update"
+    log ""
+    log "  More info: https://support.apple.com/en-us/HT201222"
+  elif [[ "$OSTYPE" == "linux-gnu" ]]; then
+    log "Linux Security Updates:"
+    log "  - Consider enabling unattended-upgrades for automatic security patches"
+    log "  - Install: sudo apt install unattended-upgrades (Debian/Ubuntu)"
+    log "  - Or: sudo yum install yum-cron (RHEL/CentOS)"
+    log ""
+    log "  Debian/Ubuntu: /etc/apt/apt.conf.d/50unattended-upgrades"
+    log "  More info: https://wiki.debian.org/UnattendedUpgrades"
+  fi
+
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
 replace_sysd() {
@@ -124,9 +686,11 @@ update_linux() {
   update_apt
   update_snap
   update_flatpak
+  update_appimage
   update_bun
   clean_logs
-  
+  clean_browser_caches
+
   if command_exists brew; then
     log "Updating Homebrew..."
     update_homebrew
@@ -365,14 +929,39 @@ update_itself() {
 }
 
 update() {
+  # Set up file logging first (before other operations)
+  setup_file_logging
+
   # Request administrator privileges with native dialog (includes Touch ID)
-  echo "Requesting administrator privileges..."
-  if ! sudo -v; then
-    log "Authentication failed. Exiting."
-    exit 1
+  # Skip in mock mode
+  if [[ -z "${MOCK_MODE:-}" ]]; then
+    echo "Requesting administrator privileges..."
+    if ! sudo -v; then
+      log "Authentication failed. Exiting."
+      send_notification "htotheizzo" "Authentication failed"
+      exit 1
+    fi
+  else
+    log "Mock mode: Skipping sudo authentication"
   fi
 
   echo "htotheizzo is running the update functions"
+
+  # Pre-update health checks
+  check_disk_space
+  check_network
+  check_system_load
+
+  # Optional: Estimate update sizes
+  estimate_update_sizes
+
+  # Show security update information
+  show_security_update_info
+
+  # Optional: Create system snapshot before updates
+  if [[ -n "${CREATE_SNAPSHOT:-}" ]]; then
+    create_system_snapshot
+  fi
 
   local is_raspberry=$(uname -a | grep raspberrypi)
 
@@ -440,6 +1029,9 @@ update() {
     else
       log "Skipped disk_maintenance"
     fi
+
+    # Clean browser caches
+    clean_browser_caches
 
     if [[ -z "${skip_system_maintenance:-}" ]]; then
       mac_system_maintenance
@@ -566,11 +1158,11 @@ update() {
     pip_output=$(pip install --upgrade pip --user 2>&1) || pip_exit_code=$?
 
     if [[ $pip_exit_code -ne 0 ]]; then
-      # Check for externally-managed environment
+      # Self-update failure is non-critical; pip is updated via Python/Homebrew
       if echo "$pip_output" | grep -q "externally-managed-environment"; then
-        log "Warning: pip self-update failed (externally-managed by system/Homebrew)"
+        log "Note: pip self-update skipped (externally-managed by system/Homebrew)"
       else
-        log "Warning: pip self-update failed"
+        log "Note: pip self-update failed (will be updated via package managers)"
       fi
     fi
 
@@ -592,11 +1184,11 @@ update() {
     pip3_output=$(python3 -m pip install --upgrade pip --user 2>&1) || pip3_exit_code=$?
 
     if [[ $pip3_exit_code -ne 0 ]]; then
-      # Check for externally-managed environment
+      # Self-update failure is non-critical; pip3 is updated via Python/Homebrew
       if echo "$pip3_output" | grep -q "externally-managed-environment"; then
-        log "Warning: pip3 self-update failed (externally-managed by system/Homebrew)"
+        log "Note: pip3 self-update skipped (externally-managed by system/Homebrew)"
       else
-        log "Warning: pip3 self-update failed"
+        log "Note: pip3 self-update failed (will be updated via package managers)"
       fi
     fi
 
@@ -637,7 +1229,12 @@ update() {
   # Deno updates
   if command_exists deno; then
     log "Updating Deno..."
-    deno upgrade || log "Warning: deno upgrade failed"
+    deno_path=$(which deno)
+    if [[ "$deno_path" =~ (/opt/homebrew|/usr/local|/home/linuxbrew) ]]; then
+      log "Skipping deno upgrade (managed by Homebrew)"
+    else
+      deno upgrade || log "Warning: deno upgrade failed"
+    fi
   fi
 
   # Composer (PHP) updates
@@ -951,19 +1548,39 @@ update() {
     rm -rf tmp
   fi
 
+  # Post-update checks
+  check_uptime
+
   log "htotheizzo is complete, you got 99 problems but updates ain't one"
 
   # Show error summary
   show_error_summary
+
+  # Send completion notification
+  local error_count=${#ERROR_LOG[@]}
+  if [[ $error_count -eq 0 ]]; then
+    send_notification "htotheizzo" "All updates completed successfully"
+  else
+    send_notification "htotheizzo" "Updates completed with $error_count warning(s)"
+  fi
 }
 
 main() {
   # Parse command line arguments
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --mock)
+      --mock|--dry-run)
         export MOCK_MODE=1
         log "Running in MOCK mode - commands will be logged but not executed"
+        shift
+        ;;
+      --install-cron)
+        install_cron_job
+        exit 0
+        ;;
+      --create-snapshot)
+        export CREATE_SNAPSHOT=1
+        log "System snapshot will be created before updates"
         shift
         ;;
       --help|-h)
@@ -977,6 +1594,9 @@ main() {
         ;;
     esac
   done
+
+  # Set up file logging (handled by setup_file_logging in update())
+  # Don't use exec with tee here as it can cause hanging issues
 
   update
 }

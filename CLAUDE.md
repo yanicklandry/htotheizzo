@@ -14,6 +14,17 @@ htotheizzo is a comprehensive system update automation script that updates multi
 - **System maintenance**: Cache cleanup, log rotation, disk verification (macOS)
 - **Package runners**: pkgx
 
+**New in 2026:**
+- **System health checks**: Disk space monitoring, network connectivity, system uptime, load monitoring
+- **File logging**: Automatic logging with rotation (keeps last 10 logs)
+- **Desktop notifications**: macOS and Linux notification support
+- **Browser cache cleanup**: Firefox, Chrome, Safari cache cleaning
+- **AppImage support**: Linux AppImage detection and update info
+- **Update size estimation**: Preview download sizes before updating
+- **Cron automation**: Built-in helper for scheduling automatic updates
+- **Snapshot support**: Create APFS snapshots before updates (macOS)
+- **Security awareness**: Information about security update best practices
+
 All in a single command with intelligent error handling and skip options.
 
 ## Architecture
@@ -209,6 +220,18 @@ The script supports skipping specific package managers using environment variabl
 - `skip_jenv=1` - Skip jenv updates
 - `skip_goenv=1` - Skip goenv updates
 - `skip_nodenv=1` - Skip nodenv updates
+
+**New Features (2026):**
+- `skip_disk_check=1` - Skip disk space monitoring
+- `skip_network_check=1` - Skip network connectivity check
+- `skip_uptime_check=1` - Skip system uptime check
+- `skip_backup_warning=1` - Skip backup reminder
+- `skip_load_check=1` - Skip system load monitoring
+- `skip_browser_cache=1` - Skip browser cache cleanup
+- `skip_appimage=1` - Skip AppImage updates (Linux)
+- `skip_file_logging=1` - Skip file logging
+- `skip_notifications=1` - Skip desktop notifications
+- `skip_size_estimate=1` - Skip update size estimation
 
 ## Platform-Specific Behavior
 

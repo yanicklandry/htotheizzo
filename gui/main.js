@@ -8,7 +8,7 @@ let mainWindow;
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 600,
-    height: 700,
+    height: 850,
     resizable: false,
     webPreferences: {
       nodeIntegration: false,
@@ -233,6 +233,37 @@ ipcMain.handle('detect-commands', async () => {
     });
   } catch (error) {
     detectionResults['omz'] = false;
+  }
+
+  // New feature detection
+  detectionResults['disk_check'] = true;  // Always available (uses df)
+  detectionResults['network_check'] = true;  // Always available (uses ping)
+  detectionResults['uptime_check'] = true;  // Always available (uses uptime)
+  detectionResults['backup_warning'] = true;  // Always available
+  detectionResults['load_check'] = true;  // Always available
+  detectionResults['browser_cache'] = true;  // Always available
+  detectionResults['file_logging'] = true;  // Always available
+  detectionResults['size_estimate'] = true;  // Always available
+
+  // AppImage (Linux only)
+  detectionResults['appimage'] = process.platform === 'linux';
+
+  // Desktop notifications
+  if (process.platform === 'darwin') {
+    detectionResults['notifications'] = true;  // macOS has osascript
+  } else if (process.platform === 'linux') {
+    try {
+      await new Promise((resolve) => {
+        exec('command -v notify-send', (error) => {
+          detectionResults['notifications'] = !error;
+          resolve();
+        });
+      });
+    } catch (error) {
+      detectionResults['notifications'] = false;
+    }
+  } else {
+    detectionResults['notifications'] = false;
   }
 
   return detectionResults;
