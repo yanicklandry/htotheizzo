@@ -63,6 +63,19 @@ maybe_run() {
     fi
 }
 
+# Emit a structured progress event for the GUI
+progress() {
+  echo "PROGRESS:$1"
+}
+
+# Keep sudo credentials alive in background for the duration of the script
+keep_sudo_alive() {
+  ( while kill -0 $$ 2>/dev/null; do sudo -v 2>/dev/null; sleep 50; done ) &
+  local keepalive_pid=$!
+  disown "$keepalive_pid" 2>/dev/null || true
+  trap "kill $keepalive_pid 2>/dev/null || true" EXIT INT TERM
+}
+
 # Standardized error handling helper
 run_with_fallback() {
   local cmd="$1"
@@ -234,7 +247,14 @@ backup_reminder() {
   # Check Time Machine status on macOS
   if [[ "$OSTYPE" == "darwin"* ]] && command -v tmutil >/dev/null 2>&1; then
     local tm_destination
-    tm_destination=$(tmutil destinationinfo 2>/dev/null | grep "Name" | head -1 | cut -d: -f2 | xargs)
+    # tmutil destinationinfo can hang on macOS 15+ without Full Disk Access — always use timeout
+    if command -v gtimeout >/dev/null 2>&1; then
+      tm_destination=$(gtimeout 5 tmutil destinationinfo 2>/dev/null | grep "Name" | head -1 | cut -d: -f2 | xargs || echo "")
+    elif command -v timeout >/dev/null 2>&1; then
+      tm_destination=$(timeout 5 tmutil destinationinfo 2>/dev/null | grep "Name" | head -1 | cut -d: -f2 | xargs || echo "")
+    else
+      tm_destination=""  # Skip if no timeout available — tmutil may hang
+    fi
 
     if [[ -n "$tm_destination" ]]; then
       log "Time Machine backup destination: $tm_destination"
@@ -258,6 +278,29 @@ backup_reminder() {
   fi
 
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+check_battery() {
+  if [[ "$OSTYPE" != "darwin"* ]]; then return 0; fi
+  if [[ -n "${skip_battery_check:-}" ]]; then
+    log "Skipped battery_check"
+    return 0
+  fi
+
+  # Check if on battery power
+  local power_source
+  power_source=$(pmset -g batt 2>/dev/null | head -1 || echo "")
+
+  if echo "$power_source" | grep -q "Battery Power"; then
+    local battery_pct
+    battery_pct=$(pmset -g batt 2>/dev/null | grep -oE '[0-9]+%' | head -1 | tr -d '%' || echo "100")
+    log "Warning: Running on battery power (${battery_pct}%). Plug in power for long-running updates."
+    if [[ "${battery_pct:-100}" -lt 20 ]]; then
+      log "Warning: Battery is critically low (${battery_pct}%). Updates may be interrupted."
+    fi
+  else
+    log "Power source: AC / external power"
+  fi
 }
 
 # Logging and Notifications
@@ -716,6 +759,8 @@ update_apt() {
 
 update_snap() {
   if command_exists snap; then
+    log "Available Snap updates:"
+    snap refresh --list 2>/dev/null || true
     log "Updating Snap packages..."
     sudo snap refresh || log "Warning: snap refresh failed"
     
@@ -749,6 +794,8 @@ update_bun() {
   if command_exists bun; then
     log "Updating Bun..."
     bun upgrade || log "Warning: bun upgrade failed"
+    log "Updating Bun global packages..."
+    bun pm global upgrade 2>/dev/null || log "Warning: bun global upgrade failed"
   fi
 }
 
@@ -797,6 +844,19 @@ update_homebrew() {
 
   brew upgrade || log "Warning: brew upgrade failed"
   brew cleanup -s || log "Warning: brew cleanup failed"
+  brew autoremove || log "Warning: brew autoremove failed"
+
+  # Reconcile installed packages against Brewfile if one exists
+  local brewfile="${HOMEBREW_BUNDLE_FILE:-$HOME/.Brewfile}"
+  if [[ ! -f "$brewfile" ]]; then brewfile="$HOME/Brewfile"; fi
+  if [[ -f "$brewfile" ]]; then
+    log "Checking Brewfile: $brewfile"
+    if ! brew bundle check --file="$brewfile" 2>/dev/null; then
+      brew bundle install --file="$brewfile" || log "Warning: brew bundle install failed"
+    else
+      log "Brewfile is up to date"
+    fi
+  fi
 }
 
 
@@ -941,13 +1001,18 @@ update() {
       send_notification "htotheizzo" "Authentication failed"
       exit 1
     fi
+    # Keep sudo credentials refreshed for the entire run
+    keep_sudo_alive
   else
     log "Mock mode: Skipping sudo authentication"
   fi
 
   echo "htotheizzo is running the update functions"
 
+  progress "Running pre-update health checks"
   # Pre-update health checks
+  backup_reminder
+  check_battery
   check_disk_space
   check_network
   check_system_load
@@ -974,6 +1039,7 @@ update() {
 
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     log "Hey there Mac user. At least it's not Windows."
+    progress "Updating macOS packages"
 
     # Install Apple Command Line Tools (necessary after an update)
     if [[ -z "${skip_xcode_select:-}" ]] && command_exists xcode-select; then
@@ -999,7 +1065,10 @@ update() {
     fi
 
     if [[ -z "${skip_softwareupdate:-}" ]] && command_exists softwareupdate; then
-      log "Updating Apple Software Update"
+      log "Available macOS software updates:"
+      softwareupdate --list 2>&1 | grep -v "^Software Update Tool" | grep -v "^Copyright" || true
+      progress "Installing macOS software updates"
+      log "Installing Apple Software Updates"
       sudo softwareupdate --install --all --verbose || log "Warning: softwareupdate failed"
     elif [[ -n "${skip_softwareupdate:-}" ]]; then
       log "Skipped softwareupdate"
@@ -1076,6 +1145,7 @@ update() {
 
   update_vscode_ext
 
+  progress "Updating shell and dev tools"
   if command_exists kav; then
     log "Updating Kaspersky Security Tools..."
     kav update || log "Warning: kav update failed"
@@ -1083,7 +1153,7 @@ update() {
 
   if command_exists omz; then
     log "Updating Oh My ZSH..."
-    omz update || log "Warning: omz update failed"
+    omz update --unattended || log "Warning: omz update failed"
   fi
 
   if command_exists apm; then
@@ -1091,6 +1161,7 @@ update() {
     apm update --no-confirm || log "Warning: apm update failed"
   fi
 
+  progress "Updating JavaScript/Node.js tools"
   if command_exists npm; then
     log "Updating npm..."
     npm install -g npm || log "Warning: npm self-update failed"
@@ -1143,6 +1214,19 @@ update() {
     nvm alias default stable
   fi
 
+  # Volta (Node version manager)
+  if command_exists volta; then
+    log "Updating Volta managed Node to latest LTS..."
+    volta install node@lts || log "Warning: volta install node@lts failed"
+  fi
+
+  # fnm (Fast Node Manager)
+  if command_exists fnm; then
+    log "Updating fnm managed Node to latest LTS..."
+    fnm install --lts || log "Warning: fnm install --lts failed"
+  fi
+
+  progress "Updating Python tools"
   if command_exists pip; then
     log "Updating pip packages..."
     export PIP_REQUIRE_VIRTUALENV=false
@@ -1200,8 +1284,11 @@ update() {
     pipenv --clear
   fi
 
+  progress "Updating Rust and systems tools"
   # Rust/Cargo updates
   if command_exists rustup; then
+    log "Checking Rust toolchain status..."
+    rustup check 2>/dev/null || true
     log "Updating Rust toolchain..."
     rustup update || log "Warning: rustup update failed"
   fi
@@ -1433,6 +1520,7 @@ update() {
     log "Updating mise..."
     mise self-update || log "Warning: mise self-update failed"
     mise plugins update || log "Warning: mise plugins update failed"
+    mise upgrade || log "Warning: mise upgrade (tool versions) failed"
   fi
 
   # proto - multi-language version manager (Rust-based alternative to asdf/mise)
@@ -1480,6 +1568,12 @@ update() {
     # Starship is typically updated via package managers
   fi
 
+  # tldr (tealdeer) — refresh offline page cache
+  if command_exists tldr; then
+    log "Updating tldr page cache..."
+    tldr --update || log "Warning: tldr --update failed"
+  fi
+
   # jenv (Java version manager)
   if command_exists jenv; then
     log "Updating jenv..."
@@ -1516,6 +1610,7 @@ update() {
 
   sudo -v  # Refresh sudo credentials
 
+  progress "Updating Ruby gems"
   if command_exists gem; then
     log "Updating ruby gems..."
 

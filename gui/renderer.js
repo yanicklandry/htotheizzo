@@ -173,6 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const errorSummary = document.getElementById('errorSummary');
     const errorSummaryHeader = document.getElementById('errorSummaryHeader');
     const errorList = document.getElementById('errorList');
+    const showLogBtn = document.getElementById('showLogBtn');
     const createSnapshotBtn = document.getElementById('createSnapshotBtn');
     const showCronBtn = document.getElementById('showCronBtn');
     const logFilePath = document.getElementById('logFilePath');
@@ -224,6 +225,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         createSnapshotBtn.disabled = false;
     });
+
+    if (showLogBtn) {
+        showLogBtn.addEventListener('click', () => {
+            const logPath = (logFilePath.value.trim() || '~/logs/htotheizzo.log')
+                .replace('~', process.env.HOME || '');
+            if (electronAPI.openLogFile) electronAPI.openLogFile(logPath);
+        });
+    }
 
     showCronBtn.addEventListener('click', async () => {
         const cronInfo = `To install htotheizzo as a cron job:
@@ -366,44 +375,54 @@ Alternative schedules:
         setStatus('All available package managers selected', 'info');
     });
 
-    // Progress simulation based on output
+    // Structured PROGRESS: event milestones emitted by htotheizzo.sh
+    const progressMilestones = {
+        'Running pre-update health checks': 5,
+        'Updating macOS packages': 15,
+        'Installing macOS software updates': 30,
+        'Updating shell and dev tools': 45,
+        'Updating JavaScript/Node.js tools': 55,
+        'Updating Python tools': 70,
+        'Updating Rust and systems tools': 80,
+        'Updating Ruby gems': 90,
+    };
+
     let progressPercent = 0;
     let updateCount = 0;
-    let estimatedTotalUpdates = 20; // Will be calculated based on enabled options
-
-    function calculateTotalUpdates() {
-        // Count only enabled (checked) package managers
-        const enabledCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
-        // Each package manager typically has 1-2 update operations
-        return Math.max(1, enabledCheckboxes.length * 1.5);
-    }
 
     function simulateProgress(outputText) {
-        // Skip if this is a "Skipping" message
+        // Parse structured PROGRESS:<label> events emitted by htotheizzo.sh — reliable source of truth
+        const progressMatch = outputText.match(/PROGRESS:(.+)/);
+        if (progressMatch) {
+            const label = progressMatch[1].trim();
+            if (progressMilestones[label] !== undefined) {
+                progressPercent = progressMilestones[label];
+                updateProgress(progressPercent, `${label} (${Math.floor(progressPercent)}%)`);
+            }
+            return;
+        }
+
+        // Fallback: advance slightly for known action keywords between PROGRESS events
         if (outputText.includes('Skipping') || outputText.includes('skipping')) {
             return;
         }
 
-        // Increment progress based on output
         if (outputText.includes('Updating') || outputText.includes('Installing') ||
             outputText.includes('Upgrading') || outputText.includes('Cleaning') ||
             outputText.includes('Performing') || outputText.includes('Running') ||
             outputText.includes('Checking') || outputText.includes('Rebuilding') ||
             outputText.includes('Verifying')) {
-            updateCount++;
-            progressPercent = Math.min(95, (updateCount / estimatedTotalUpdates) * 100);
 
-            // Extract current operation and strip timestamp
+            updateCount++;
+            // Gently drift forward within the current phase, never past 95%
+            progressPercent = Math.min(95, progressPercent + 0.3);
+
+            // Extract current operation label and strip timestamp
             const lines = outputText.trim().split('\n');
             const lastLine = lines[lines.length - 1];
-
-            // Remove timestamp pattern [YYYY-MM-DD HH:MM:SS] from the beginning
             const cleanedLine = lastLine.replace(/^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]\s*/, '');
-
-            // Show operation name with percentage
             const operationName = cleanedLine.length > 40 ? cleanedLine.substring(0, 40) + '...' : cleanedLine;
-            const progressMessage = `${operationName} (${Math.floor(progressPercent)}%)`;
-            updateProgress(progressPercent, progressMessage);
+            updateProgress(progressPercent, `${operationName} (${Math.floor(progressPercent)}%)`);
         }
     }
 
@@ -423,10 +442,6 @@ Alternative schedules:
         progressPercent = 0;
         updateCount = 0;
 
-        // Calculate total updates based on enabled options
-        estimatedTotalUpdates = calculateTotalUpdates();
-        console.log('Estimated total updates:', estimatedTotalUpdates);
-
         try {
             const result = await electronAPI.runHtotheizzo(skipOptions);
 
@@ -438,8 +453,10 @@ Alternative schedules:
 
                 if (errorMessages.length === 0) {
                     setStatus('Updates completed successfully!', 'success');
+                    if (electronAPI.updateDockBadge) electronAPI.updateDockBadge(0);
                 } else {
                     setStatus(`Updates completed with ${errorMessages.length} warning(s)`, 'error');
+                    if (electronAPI.updateDockBadge) electronAPI.updateDockBadge(errorMessages.length);
                 }
             } else {
                 updateProgress(0, '');

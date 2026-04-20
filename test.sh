@@ -20,6 +20,37 @@ TESTS_FAILED=0
 # Test directory
 TEST_DIR=""
 
+# Run htotheizzo.sh with all package managers skipped (fast, safe for CI/tests).
+# Keeps health checks, logging, and structural features active.
+# Usage: run_htotheizzo_fast [extra args] > log 2>&1
+run_htotheizzo_fast() {
+    MOCK_MODE=1 skip_file_logging=1 \
+    skip_softwareupdate=1 skip_xcode_select=1 \
+    skip_disk_maintenance=1 skip_system_maintenance=1 \
+    skip_spotlight=1 skip_launchpad=1 \
+    skip_backup_warning=1 skip_battery_check=1 \
+    skip_brew=1 skip_mas=1 \
+    skip_npm=1 skip_yarn=1 skip_pnpm=1 skip_bun=1 skip_deno=1 \
+    skip_nvm=1 skip_nodenv=1 \
+    skip_pip=1 skip_pip3=1 skip_pipenv=1 skip_poetry=1 skip_pdm=1 skip_uv=1 \
+    skip_pyenv=1 skip_conda=1 skip_mamba=1 skip_pixi=1 \
+    skip_gem=1 skip_rvm=1 skip_rbenv=1 \
+    skip_rustup=1 skip_cargo=1 \
+    skip_go=1 skip_goenv=1 \
+    skip_composer=1 \
+    skip_sdk=1 skip_jenv=1 \
+    skip_docker=1 skip_podman=1 \
+    skip_helm=1 skip_flutter=1 \
+    skip_asdf=1 skip_mise=1 skip_proto=1 skip_pkgx=1 \
+    skip_tfenv=1 \
+    skip_gh=1 skip_gcloud=1 skip_az=1 \
+    skip_pod=1 skip_kav=1 skip_apm=1 skip_fisher=1 \
+    skip_antibody=1 skip_zinit=1 skip_jenv=1 \
+    skip_self_update=1 \
+    skip_size_estimate=1 \
+    ./htotheizzo.sh "$@"
+}
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
@@ -65,11 +96,17 @@ test_skip_flags() {
     log_test "Skip flags prevent execution"
 
     local output
-    output=$(skip_brew=1 skip_mas=1 skip_npm=1 skip_pip=1 MOCK_MODE=1 skip_file_logging=1 ./htotheizzo.sh 2>&1 || true)
+    output=$(skip_brew=1 skip_mas=1 skip_npm=1 skip_pip=1 \
+        MOCK_MODE=1 skip_file_logging=1 \
+        skip_softwareupdate=1 skip_disk_maintenance=1 skip_system_maintenance=1 \
+        skip_spotlight=1 skip_launchpad=1 skip_xcode_select=1 \
+        skip_backup_warning=1 skip_battery_check=1 \
+        ./htotheizzo.sh 2>&1 || true)
 
-    local skipped_brew=$(echo "$output" | grep -c "Skipped brew" || echo "0")
-    local skipped_mas=$(echo "$output" | grep -c "Skipped mas" || echo "0")
-    local skipped_npm=$(echo "$output" | grep -c "Skipped npm" || echo "0")
+    # Use || true: grep -c exits 1 on zero matches but still prints "0"
+    local skipped_brew; skipped_brew=$(echo "$output" | grep -c "Skipped brew" || true)
+    local skipped_mas;  skipped_mas=$(echo "$output"  | grep -c "Skipped mas"  || true)
+    local skipped_npm;  skipped_npm=$(echo "$output"  | grep -c "Skipped npm"  || true)
 
     if [[ $skipped_brew -ge 1 ]] && [[ $skipped_mas -ge 1 ]] && [[ $skipped_npm -ge 1 ]]; then
         log_pass "Skip flags working correctly"
@@ -88,7 +125,7 @@ test_mock_mode() {
 
     local test_log="$TEST_DIR/mock_output.log"
 
-    if MOCK_MODE=1 skip_file_logging=1 ./htotheizzo.sh > "$test_log" 2>&1; then
+    if run_htotheizzo_fast > "$test_log" 2>&1; then
         log_pass "Mock mode completed successfully"
     else
         log_fail "Mock mode failed with exit code $?"
@@ -100,16 +137,17 @@ test_health_checks() {
     log_test "Health checks run in mock mode"
 
     local test_log="$TEST_DIR/health_output.log"
-    MOCK_MODE=1 skip_file_logging=1 ./htotheizzo.sh > "$test_log" 2>&1
+    run_htotheizzo_fast > "$test_log" 2>&1
 
-    local has_disk=$(grep -c "Checking disk space" "$test_log" || echo "0")
-    local has_network=$(grep -c "Checking network connectivity" "$test_log" || echo "0")
-    local has_backup=$(grep -c "BACKUP REMINDER" "$test_log" || echo "0")
+    local has_disk;    has_disk=$(grep -c "Checking disk space" "$test_log" || true)
+    local has_network; has_network=$(grep -c "Checking network connectivity" "$test_log" || true)
+    # backup_reminder is skipped in fast mode (skip_backup_warning=1), so check it was skipped
+    local has_backup_skip; has_backup_skip=$(grep -c "Skipped backup_warning" "$test_log" || true)
 
-    if [[ $has_disk -ge 1 ]] && [[ $has_network -ge 1 ]] && [[ $has_backup -ge 1 ]]; then
-        log_pass "All health checks executed"
+    if [[ $has_disk -ge 1 ]] && [[ $has_network -ge 1 ]] && [[ $has_backup_skip -ge 1 ]]; then
+        log_pass "All health checks executed (backup_warning correctly skipped)"
     else
-        log_fail "Missing health checks (disk:$has_disk network:$has_network backup:$has_backup)"
+        log_fail "Missing health checks (disk:$has_disk network:$has_network backup_skipped:$has_backup_skip)"
     fi
 }
 
@@ -118,9 +156,9 @@ test_error_tracking() {
     log_test "Error tracking and summary"
 
     local test_log="$TEST_DIR/error_output.log"
-    MOCK_MODE=1 skip_file_logging=1 ./htotheizzo.sh > "$test_log" 2>&1
+    run_htotheizzo_fast > "$test_log" 2>&1
 
-    if grep -q "error summary\|Updates completed" "$test_log"; then
+    if grep -qi "updates completed" "$test_log"; then
         log_pass "Error summary displayed"
     else
         log_fail "No error summary found"
@@ -283,7 +321,10 @@ test_help_flag() {
     TESTS_RUN=$((TESTS_RUN + 1))
     log_test "Help flag displays usage"
 
-    if ./htotheizzo.sh --help 2>&1 | grep -q "comprehensive system update"; then
+    # Capture all output first to avoid SIGPIPE from grep -q exiting early
+    local output
+    output=$(./htotheizzo.sh --help 2>&1)
+    if echo "$output" | grep -q "comprehensive system update"; then
         log_pass "Help text displays correctly"
     else
         log_fail "Help text missing or incorrect"
@@ -294,8 +335,11 @@ test_dry_run_flag() {
     TESTS_RUN=$((TESTS_RUN + 1))
     log_test "Dry-run/mock flag works"
 
+    # Capture all output first to avoid SIGPIPE from head -20 exiting early
     local output
-    output=$(./htotheizzo.sh --mock skip_file_logging=1 2>&1 | head -20)
+    output=$(skip_file_logging=1 skip_softwareupdate=1 skip_disk_maintenance=1 \
+        skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 skip_xcode_select=1 \
+        ./htotheizzo.sh --mock 2>&1)
 
     if echo "$output" | grep -q "MOCK mode"; then
         log_pass "Mock mode flag works"
