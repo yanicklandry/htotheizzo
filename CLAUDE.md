@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Git Guidelines
+
+- **NEVER run `git commit` or `git push` unless explicitly asked by the user.**
+  - Make edits freely, but wait for an explicit commit/push request before running git write commands.
+  - `git status`, `git diff`, `git log`, and `git fetch/pull` are always fine.
+
 ## Overview
 
 htotheizzo is a comprehensive system update automation script that updates multiple package managers and development tools across macOS, Linux, and Windows systems. It handles 60+ package managers and tools including:
