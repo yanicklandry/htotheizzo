@@ -813,6 +813,29 @@ update_vscode_ext() {
   fi
 }
 
+update_gsd() {
+  # Detect GSD: requires claude CLI and the GSD installation marker
+  if [[ -n "${skip_gsd:-}" ]]; then
+    log "Skipped gsd"
+    return 0
+  fi
+
+  if ! command -v claude &>/dev/null; then
+    return 0
+  fi
+
+  if [[ ! -f "${HOME}/.claude/gsd-file-manifest.json" ]]; then
+    return 0
+  fi
+
+  log "Updating GSD (get-shit-done)..."
+  # Run from $HOME so claude is not inside a code folder (avoids workspace prompts)
+  # --dangerously-skip-permissions bypasses all interactive permission checks
+  # --print runs non-interactively and exits when done
+  (cd "$HOME" && claude --dangerously-skip-permissions --print /gsd-update) \
+    || log "Warning: GSD update failed"
+}
+
 update_homebrew() {
   local with_casks="${1:-false}"
 
@@ -1069,7 +1092,14 @@ update() {
       softwareupdate --list 2>&1 | grep -v "^Software Update Tool" | grep -v "^Copyright" || true
       progress "Installing macOS software updates"
       log "Installing Apple Software Updates"
-      sudo softwareupdate --install --all --verbose || log "Warning: softwareupdate failed"
+      # --recommended installs security patches and minor updates headlessly.
+      # Major OS upgrades (e.g. macOS Tahoe) require interactive auth even as root;
+      # skip them here with skip_softwareupdate_major=1 or upgrade manually.
+      if [[ -z "${skip_softwareupdate_major:-}" ]]; then
+        sudo softwareupdate --install --all --verbose || log "Warning: softwareupdate failed"
+      else
+        sudo softwareupdate --install --recommended --verbose || log "Warning: softwareupdate failed"
+      fi
     elif [[ -n "${skip_softwareupdate:-}" ]]; then
       log "Skipped softwareupdate"
     fi
@@ -1144,6 +1174,7 @@ update() {
   fi
 
   update_vscode_ext
+  update_gsd
 
   progress "Updating shell and dev tools"
   if command_exists kav; then
