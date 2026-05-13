@@ -1107,6 +1107,7 @@ update() {
     # Update Mac App Store using : https://github.com/argon/mas
     if command_exists mas; then
       log "Updating Mac App Store..."
+      MAS_NO_AUTO_INDEX=1
       mas upgrade || log "Warning: mas upgrade failed"
     fi
 
