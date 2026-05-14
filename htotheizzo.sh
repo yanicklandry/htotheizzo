@@ -523,46 +523,6 @@ estimate_update_sizes() {
   fi
 }
 
-check_system_load() {
-  if [[ -n "${skip_load_check:-}" ]]; then
-    log "Skipped load_check"
-    return 0
-  fi
-
-  log "Checking system load..."
-
-  # Check load average
-  if command -v uptime >/dev/null 2>&1; then
-    local load_avg
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-      load_avg=$(uptime | awk -F'load averages:' '{print $2}' | awk '{print $1}' | sed 's/,//')
-    else
-      load_avg=$(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | sed 's/,//')
-    fi
-
-    if [[ -n "$load_avg" ]]; then
-      log "System load average (1 min): $load_avg"
-
-      # Warn if load is high (> 4.0)
-      if (( $(echo "$load_avg > 4.0" | bc -l 2>/dev/null || echo 0) )); then
-        log "Warning: High system load detected ($load_avg). Updates may run slowly."
-      fi
-    fi
-  fi
-
-  # Check CPU temperature on macOS (if available)
-  if [[ "$OSTYPE" == "darwin"* ]] && command -v sysctl >/dev/null 2>&1; then
-    # Note: CPU temperature is not always available via sysctl
-    # This is informational only
-    local temp_info
-    temp_info=$(sysctl -a 2>/dev/null | grep -i "temperature" | head -3 || echo "")
-
-    if [[ -n "$temp_info" ]]; then
-      log "System temperature info available (check for overheating)"
-    fi
-  fi
-}
-
 install_cron_job() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   log "Installing htotheizzo as a cron job"
@@ -991,7 +951,6 @@ update() {
   check_battery
   check_disk_space
   check_network
-  check_system_load
 
   # Optional: Estimate update sizes
   estimate_update_sizes
