@@ -233,52 +233,6 @@ check_uptime() {
   fi
 }
 
-backup_reminder() {
-  if [[ -n "${skip_backup_warning:-}" ]]; then
-    log "Skipped backup_warning"
-    return 0
-  fi
-
-  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "⚠️  BACKUP REMINDER"
-  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "Before running system updates, ensure critical data is backed up."
-
-  # Check Time Machine status on macOS
-  if [[ "$OSTYPE" == "darwin"* ]] && command -v tmutil >/dev/null 2>&1; then
-    local tm_destination
-    # tmutil destinationinfo can hang on macOS 15+ without Full Disk Access — always use timeout
-    if command -v gtimeout >/dev/null 2>&1; then
-      tm_destination=$(gtimeout 5 tmutil destinationinfo 2>/dev/null | grep "Name" | head -1 | cut -d: -f2 | xargs || echo "")
-    elif command -v timeout >/dev/null 2>&1; then
-      tm_destination=$(timeout 5 tmutil destinationinfo 2>/dev/null | grep "Name" | head -1 | cut -d: -f2 | xargs || echo "")
-    else
-      tm_destination=""  # Skip if no timeout available — tmutil may hang
-    fi
-
-    if [[ -n "$tm_destination" ]]; then
-      log "Time Machine backup destination: $tm_destination"
-
-      # Check last backup date (with timeout to avoid hanging)
-      local last_backup
-      # Use gtimeout if available, otherwise skip the latestbackup check
-      if command -v gtimeout >/dev/null 2>&1; then
-        last_backup=$(gtimeout 5 tmutil latestbackup 2>/dev/null || echo "")
-      else
-        # Skip latestbackup check if no timeout available (it may hang)
-        last_backup=""
-      fi
-
-      if [[ -n "$last_backup" ]]; then
-        log "Last Time Machine backup: $(basename "$last_backup")"
-      fi
-    else
-      log "Time Machine not configured. Consider setting up backups."
-    fi
-  fi
-
-  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-}
 
 check_battery() {
   if [[ "$OSTYPE" != "darwin"* ]]; then return 0; fi
@@ -1034,7 +988,6 @@ update() {
 
   progress "Running pre-update health checks"
   # Pre-update health checks
-  backup_reminder
   check_battery
   check_disk_space
   check_network
