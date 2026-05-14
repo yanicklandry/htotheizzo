@@ -1,13 +1,13 @@
 # Implementation Plan
 
 - [ ] 1. Remove backup_reminder function and call site
-- [ ] 1.1 (P) Delete backup_reminder function body (lines 236–281) from htotheizzo.sh
+- [x] 1.1 (P) Delete backup_reminder function body (lines 236–281) from htotheizzo.sh
   - Remove the entire `backup_reminder()` block including all `tmutil` invocations and the `skip_backup_warning` guard.
   - Confirm no reference to `backup_reminder` or `skip_backup_warning` remains in the file after deletion.
   - _Requirements: 2.2, 2.4_
   - _Boundary: htotheizzo.sh pre-check section_
 
-- [ ] 1.2 (P) Delete backup_reminder call site (line 1037) from htotheizzo.sh
+- [x] 1.2 (P) Delete backup_reminder call site (line 1037) from htotheizzo.sh
   - Remove the `backup_reminder` line from the pre-update health checks block.
   - Confirm `check_battery` is now the first call in that block.
   - _Requirements: 2.1, 2.3_
@@ -15,13 +15,13 @@
   - _Depends: 1.1_
 
 - [ ] 2. Remove check_system_load function and call site
-- [ ] 2.1 (P) Delete check_system_load function body (lines 572–610) from htotheizzo.sh
+- [x] 2.1 (P) Delete check_system_load function body (lines 572–610) from htotheizzo.sh
   - Remove the entire `check_system_load()` block including the CPU temperature sysctl sub-block.
   - Confirm no reference to `check_system_load` or `skip_load_check` remains in the file.
   - _Requirements: 1.2, 1.4_
   - _Boundary: htotheizzo.sh pre-check section_
 
-- [ ] 2.2 (P) Delete check_system_load call site (line 1041) from htotheizzo.sh
+- [x] 2.2 (P) Delete check_system_load call site (line 1041) from htotheizzo.sh
   - Remove the `check_system_load` line from the pre-update health checks block.
   - Confirm `estimate_update_sizes` follows `check_network` with no missing calls in between.
   - _Requirements: 1.1, 1.3_

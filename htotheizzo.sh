@@ -622,15 +622,6 @@ show_security_update_info() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
-replace_sysd() {
-  if [[ -d /home/$THISUSER/.sysd ]]; then
-    yes | cp -rf /home/$THISUSER/.sysd/* /lib/systemd/system/
-    systemctl daemon-reload
-    service docker start
-  fi
-}
-
-
 update_linux() {
   log "Starting Linux updates..."
   
