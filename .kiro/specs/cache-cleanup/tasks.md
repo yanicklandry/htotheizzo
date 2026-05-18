@@ -64,8 +64,8 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 6.1, 6.2, 6.3, 6.4_
   - _Boundary: htotheizzo.sh — docker block_
 
-- [ ] 5. Add cargo cache autoclean (soft check)
-- [ ] 5.1 Add soft-check cargo cache autoclean block inside the cargo section
+- [x] 5. Add cargo cache autoclean (soft check)
+- [x] 5.1 Add soft-check cargo cache autoclean block inside the cargo section
   - Locate the `if command_exists cargo; then` block — find it by searching for `cargo install --list | grep -q "cargo-update"` (the existing cargo-update guard in the same block)
   - Insert at the end of the block, after the existing `cargo-update` logic:
     ```bash

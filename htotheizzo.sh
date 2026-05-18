@@ -1240,6 +1240,10 @@ update() {
       log "Updating cargo-installed packages..."
       cargo install-update -a || log "Warning: cargo install-update failed"
     fi
+    if cargo install --list | grep -q "cargo-cache"; then
+      progress "Cleaning cargo cache"
+      cargo cache --autoclean || log "Warning: cargo cache autoclean failed"
+    fi
   fi
 
   # pnpm updates
