@@ -1141,6 +1141,8 @@ update() {
     else
       log "Warning: Skipping yarn update - no safe update method available"
     fi
+    progress "Cleaning yarn cache"
+    yarn cache clean || log "Warning: yarn cache clean failed"
   fi
 
   if command_exists nvm; then
@@ -1279,6 +1281,8 @@ update() {
         log "Cleaning up Docker containers..."
       fi
       docker system prune -af --volumes || log "Warning: docker system prune failed"
+      progress "Pruning Docker builder cache"
+      docker builder prune -f || log "Warning: docker builder prune failed"
     fi
   elif command_exists podman; then
     # Podman without docker alias - check if running
@@ -1403,6 +1407,8 @@ update() {
       log "Updating uv (includes uvx)..."
       uv self update || log "Warning: uv self update failed"
     fi
+    progress "Cleaning uv cache"
+    uv cache clean || log "Warning: uv cache clean failed"
   fi
 
   # pixi (Fast multi-language package manager built on conda ecosystem)

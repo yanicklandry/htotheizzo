@@ -25,8 +25,8 @@
   - _Requirements: 1.4, 1.5, 1.6, 6.1, 6.2, 6.3, 6.4_
   - _Boundary: htotheizzo.sh — pip3 block_
 
-- [ ] 2. Add yarn cache clean
-- [ ] 2.1 Add `yarn cache clean` at the end of the yarn update block
+- [x] 2. Add yarn cache clean
+- [x] 2.1 Add `yarn cache clean` at the end of the yarn update block
   - Locate the `if command_exists yarn; then` block — find it by searching for `command_exists yarn` (the block contains Homebrew/corepack/npm yarn update branches)
   - Insert immediately before the closing `fi`, after all yarn update branches complete:
     ```bash
@@ -38,8 +38,8 @@
   - _Requirements: 4.1, 4.2, 4.3, 6.1, 6.2, 6.3, 6.4_
   - _Boundary: htotheizzo.sh — yarn block_
 
-- [ ] 3. Add uv cache clean
-- [ ] 3.1 Add `uv cache clean` at the end of the uv block
+- [x] 3. Add uv cache clean
+- [x] 3.1 Add `uv cache clean` at the end of the uv block
   - Locate the `if command_exists uv; then` block — find it by searching for `uv self update || log "Warning: uv self update failed"` (the block contains a Homebrew-skip branch and a standalone self-update branch)
   - Insert immediately before the closing `fi`, after both the Homebrew-skip branch and the `uv self update` branch:
     ```bash
@@ -51,8 +51,8 @@
   - _Requirements: 2.1, 2.2, 2.3, 6.1, 6.2, 6.3, 6.4_
   - _Boundary: htotheizzo.sh — uv block_
 
-- [ ] 4. Add docker builder prune
-- [ ] 4.1 Add `docker builder prune -f` after `docker system prune` inside the daemon-running guard
+- [x] 4. Add docker builder prune
+- [x] 4.1 Add `docker builder prune -f` after `docker system prune` inside the daemon-running guard
   - Locate the `docker system prune -af --volumes || log "Warning: docker system prune failed"` line — find it by searching for that string inside the docker cleanup block (inside `if docker info &>/dev/null; then`)
   - Insert immediately after that line (still inside `if docker info &>/dev/null; then`):
     ```bash
