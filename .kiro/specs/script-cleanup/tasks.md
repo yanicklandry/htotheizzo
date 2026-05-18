@@ -44,22 +44,22 @@
   - _Requirements: 4.1, 4.2_
   - _Boundary: htotheizzo.sh macOS update block_
 
-- [ ] 5. Reduce cache cleanup timeout and add find depth limit
-- [ ] 5.1 Update gtimeout branch: change 300 to 30 and add -maxdepth 3
+- [x] 5. Reduce cache cleanup timeout and add find depth limit
+- [x] 5.1 Update gtimeout branch: change 300 to 30 and add -maxdepth 3
   - In the `gtimeout` branch of the cache cleanup block, change `gtimeout 300` to `gtimeout 30`.
   - Add `-maxdepth 3` to the find invocation immediately before the `\(` name-pattern group.
   - Confirm the `|| log "Warning: cache cleanup timed out or failed"` fallback is preserved.
   - _Requirements: 5.1, 5.2, 6.1, 6.2_
   - _Boundary: htotheizzo.sh cache cleanup block_
 
-- [ ] 5.2 Update timeout branch: change 300 to 30 and add -maxdepth 3
+- [x] 5.2 Update timeout branch: change 300 to 30 and add -maxdepth 3
   - In the `timeout` branch of the cache cleanup block, change `timeout 300` to `timeout 30`.
   - Add `-maxdepth 3` to the find invocation immediately before the `\(` name-pattern group.
   - Confirm the `|| log "Warning: cache cleanup timed out or failed"` fallback is preserved.
   - _Requirements: 5.1, 5.2, 6.1, 6.2_
   - _Boundary: htotheizzo.sh cache cleanup block_
 
-- [ ] 5.3 Update fallback branch: change elapsed ceiling from 300 to 30 and add -maxdepth 3
+- [x] 5.3 Update fallback branch: change elapsed ceiling from 300 to 30 and add -maxdepth 3
   - In the fallback (background process) branch, change the manual loop ceiling `$elapsed -lt 300` to `$elapsed -lt 30`.
   - Add `-maxdepth 3` to the find invocation in the same branch before the `\(` name-pattern group.
   - Confirm the `kill $find_pid` guard and warning log are preserved.

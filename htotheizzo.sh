@@ -809,17 +809,17 @@ mac_disk_maintenance() {
     # More selective cache cleanup - only clear specific safe directories
     # Combine find operations into one command for better performance
     log "Removing temporary cache files (this may take a while for large caches)..."
-    # Use timeout to prevent indefinite hanging (max 5 minutes)
+    # Use timeout to prevent indefinite hanging (max 30 seconds)
     if command -v gtimeout >/dev/null 2>&1; then
-      gtimeout 300 find ~/Library/Caches \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
+      gtimeout 30 find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
     elif command -v timeout >/dev/null 2>&1; then
-      timeout 300 find ~/Library/Caches \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
+      timeout 30 find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
     else
       # Fallback without timeout - use background process with manual timeout
-      find ~/Library/Caches \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null &
+      find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null &
       local find_pid=$!
       local elapsed=0
-      while kill -0 $find_pid 2>/dev/null && [ $elapsed -lt 300 ]; do
+      while kill -0 $find_pid 2>/dev/null && [ $elapsed -lt 30 ]; do
         sleep 5
         elapsed=$((elapsed + 5))
         if [ $((elapsed % 30)) -eq 0 ]; then
