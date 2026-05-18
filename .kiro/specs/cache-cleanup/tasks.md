@@ -80,14 +80,14 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 6.2, 6.3, 6.4_
   - _Boundary: htotheizzo.sh — cargo block_
 
-- [ ] 6. Verify pattern conformance and test pass
-- [ ] 6.1 Run test.sh and confirm all tests pass
+- [x] 6. Verify pattern conformance and test pass
+- [x] 6.1 Run test.sh and confirm all tests pass
   - Run `./test.sh` from the repo root
   - Observable: test.sh exits 0 with no failures reported
   - _Requirements: 6.5_
   - _Depends: 1.1, 1.2, 2.1, 3.1, 4.1, 5.1_
 
-- [ ] 6.2 Smoke-test with MOCK_MODE
+- [x] 6.2 Smoke-test with MOCK_MODE
   - Run `MOCK_MODE=1 ./htotheizzo.sh 2>&1 | grep PROGRESS`
   - Observable: New PROGRESS lines appear (`Purging pip cache`, `Purging pip3 cache`, `Cleaning uv cache`, `Cleaning yarn cache`, `Pruning Docker builder cache`) without any new errors
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
