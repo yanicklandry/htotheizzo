@@ -809,17 +809,17 @@ mac_disk_maintenance() {
     # More selective cache cleanup - only clear specific safe directories
     # Combine find operations into one command for better performance
     log "Removing temporary cache files (this may take a while for large caches)..."
-    # Use timeout to prevent indefinite hanging (max 30 seconds)
+    # Use timeout to prevent indefinite hanging (max 60 seconds)
     if command -v gtimeout >/dev/null 2>&1; then
-      gtimeout 30 find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
+      gtimeout 60 find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
     elif command -v timeout >/dev/null 2>&1; then
-      timeout 30 find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
+      timeout 60 find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
     else
       # Fallback without timeout - use background process with manual timeout
       find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null &
       local find_pid=$!
       local elapsed=0
-      while kill -0 $find_pid 2>/dev/null && [ $elapsed -lt 30 ]; do
+      while kill -0 $find_pid 2>/dev/null && [ $elapsed -lt 60 ]; do
         sleep 5
         elapsed=$((elapsed + 5))
         if [ $((elapsed % 30)) -eq 0 ]; then
@@ -994,7 +994,7 @@ update() {
       local sw_list
       sw_list=$(softwareupdate --list 2>&1 | grep -v "^Software Update Tool" | grep -v "^Copyright" || true)
       log "Available macOS software updates:"
-      log "$sw_list"
+      while IFS= read -r line; do log "$line"; done <<< "$sw_list"
       progress "Installing macOS software updates"
       log "Installing Apple Software Updates"
       # --recommended installs security patches and minor updates headlessly.
@@ -1135,14 +1135,16 @@ update() {
       log "Yarn installed via corepack, enabling latest version"
       corepack enable || log "Warning: corepack enable failed"
       corepack prepare yarn@stable --activate || log "Warning: corepack yarn update failed"
+      progress "Cleaning yarn cache"
+      yarn cache clean || log "Warning: yarn cache clean failed"
     elif command_exists npm; then
       log "Attempting yarn update via npm..."
       npm install -g yarn --force || log "Warning: yarn update via npm failed"
+      progress "Cleaning yarn cache"
+      yarn cache clean || log "Warning: yarn cache clean failed"
     else
       log "Warning: Skipping yarn update - no safe update method available"
     fi
-    progress "Cleaning yarn cache"
-    yarn cache clean || log "Warning: yarn cache clean failed"
   fi
 
   if command_exists nvm; then
@@ -1235,12 +1237,14 @@ update() {
   fi
 
   if command_exists cargo; then
+    local cargo_installed
+    cargo_installed=$(cargo install --list)
     # Check if cargo-update is installed for updating cargo packages
-    if cargo install --list | grep -q "cargo-update"; then
+    if echo "$cargo_installed" | grep -q "cargo-update"; then
       log "Updating cargo-installed packages..."
       cargo install-update -a || log "Warning: cargo install-update failed"
     fi
-    if cargo install --list | grep -q "cargo-cache"; then
+    if echo "$cargo_installed" | grep -q "cargo-cache"; then
       progress "Cleaning cargo cache"
       cargo cache --autoclean || log "Warning: cargo cache autoclean failed"
     fi
@@ -1285,8 +1289,6 @@ update() {
         log "Cleaning up Docker containers..."
       fi
       docker system prune -af --volumes || log "Warning: docker system prune failed"
-      progress "Pruning Docker builder cache"
-      docker builder prune -f || log "Warning: docker builder prune failed"
     fi
   elif command_exists podman; then
     # Podman without docker alias - check if running
