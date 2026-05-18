@@ -79,15 +79,15 @@
   - _Requirements: 7.2, 7.3_
   - _Boundary: htotheizzo.sh update function_
 
-- [ ] 7. Validate changes with test suite
-- [ ] 7.1 Run test.sh and confirm exit code 0
+- [x] 7. Validate changes with test suite
+- [x] 7.1 Run test.sh and confirm exit code 0
   - Execute `./test.sh` from the repo root.
   - All tests pass; exit code is 0.
   - If any test fails, identify the regression introduced by tasks 1–6 and fix it before marking this task complete.
   - _Requirements: 8.1, 8.2_
   - _Depends: 1.2, 2.2, 3.1, 4.1, 5.3, 6.2_
 
-- [ ] 7.2 Static verification: confirm no deleted symbols remain
+- [x] 7.2 Static verification: confirm no deleted symbols remain
   - Run grep for `backup_reminder`, `check_system_load`, `replace_sysd`, `skip_load_check`, `skip_backup_warning` — all return no matches.
   - Run grep for `softwareupdate --list` — returns exactly one match.
   - Run grep for standalone `sudo -v` near the two deleted positions — returns no matches.
