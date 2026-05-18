@@ -233,52 +233,6 @@ check_uptime() {
   fi
 }
 
-backup_reminder() {
-  if [[ -n "${skip_backup_warning:-}" ]]; then
-    log "Skipped backup_warning"
-    return 0
-  fi
-
-  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "⚠️  BACKUP REMINDER"
-  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "Before running system updates, ensure critical data is backed up."
-
-  # Check Time Machine status on macOS
-  if [[ "$OSTYPE" == "darwin"* ]] && command -v tmutil >/dev/null 2>&1; then
-    local tm_destination
-    # tmutil destinationinfo can hang on macOS 15+ without Full Disk Access — always use timeout
-    if command -v gtimeout >/dev/null 2>&1; then
-      tm_destination=$(gtimeout 5 tmutil destinationinfo 2>/dev/null | grep "Name" | head -1 | cut -d: -f2 | xargs || echo "")
-    elif command -v timeout >/dev/null 2>&1; then
-      tm_destination=$(timeout 5 tmutil destinationinfo 2>/dev/null | grep "Name" | head -1 | cut -d: -f2 | xargs || echo "")
-    else
-      tm_destination=""  # Skip if no timeout available — tmutil may hang
-    fi
-
-    if [[ -n "$tm_destination" ]]; then
-      log "Time Machine backup destination: $tm_destination"
-
-      # Check last backup date (with timeout to avoid hanging)
-      local last_backup
-      # Use gtimeout if available, otherwise skip the latestbackup check
-      if command -v gtimeout >/dev/null 2>&1; then
-        last_backup=$(gtimeout 5 tmutil latestbackup 2>/dev/null || echo "")
-      else
-        # Skip latestbackup check if no timeout available (it may hang)
-        last_backup=""
-      fi
-
-      if [[ -n "$last_backup" ]]; then
-        log "Last Time Machine backup: $(basename "$last_backup")"
-      fi
-    else
-      log "Time Machine not configured. Consider setting up backups."
-    fi
-  fi
-
-  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-}
 
 check_battery() {
   if [[ "$OSTYPE" != "darwin"* ]]; then return 0; fi
@@ -569,46 +523,6 @@ estimate_update_sizes() {
   fi
 }
 
-check_system_load() {
-  if [[ -n "${skip_load_check:-}" ]]; then
-    log "Skipped load_check"
-    return 0
-  fi
-
-  log "Checking system load..."
-
-  # Check load average
-  if command -v uptime >/dev/null 2>&1; then
-    local load_avg
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-      load_avg=$(uptime | awk -F'load averages:' '{print $2}' | awk '{print $1}' | sed 's/,//')
-    else
-      load_avg=$(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | sed 's/,//')
-    fi
-
-    if [[ -n "$load_avg" ]]; then
-      log "System load average (1 min): $load_avg"
-
-      # Warn if load is high (> 4.0)
-      if (( $(echo "$load_avg > 4.0" | bc -l 2>/dev/null || echo 0) )); then
-        log "Warning: High system load detected ($load_avg). Updates may run slowly."
-      fi
-    fi
-  fi
-
-  # Check CPU temperature on macOS (if available)
-  if [[ "$OSTYPE" == "darwin"* ]] && command -v sysctl >/dev/null 2>&1; then
-    # Note: CPU temperature is not always available via sysctl
-    # This is informational only
-    local temp_info
-    temp_info=$(sysctl -a 2>/dev/null | grep -i "temperature" | head -3 || echo "")
-
-    if [[ -n "$temp_info" ]]; then
-      log "System temperature info available (check for overheating)"
-    fi
-  fi
-}
-
 install_cron_job() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   log "Installing htotheizzo as a cron job"
@@ -707,15 +621,6 @@ show_security_update_info() {
 
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
-
-replace_sysd() {
-  if [[ -d /home/$THISUSER/.sysd ]]; then
-    yes | cp -rf /home/$THISUSER/.sysd/* /lib/systemd/system/
-    systemctl daemon-reload
-    service docker start
-  fi
-}
-
 
 update_linux() {
   log "Starting Linux updates..."
@@ -904,17 +809,17 @@ mac_disk_maintenance() {
     # More selective cache cleanup - only clear specific safe directories
     # Combine find operations into one command for better performance
     log "Removing temporary cache files (this may take a while for large caches)..."
-    # Use timeout to prevent indefinite hanging (max 5 minutes)
+    # Use timeout to prevent indefinite hanging (max 60 seconds)
     if command -v gtimeout >/dev/null 2>&1; then
-      gtimeout 300 find ~/Library/Caches \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
+      gtimeout 60 find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
     elif command -v timeout >/dev/null 2>&1; then
-      timeout 300 find ~/Library/Caches \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
+      timeout 60 find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
     else
       # Fallback without timeout - use background process with manual timeout
-      find ~/Library/Caches \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null &
+      find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null &
       local find_pid=$!
       local elapsed=0
-      while kill -0 $find_pid 2>/dev/null && [ $elapsed -lt 300 ]; do
+      while kill -0 $find_pid 2>/dev/null && [ $elapsed -lt 60 ]; do
         sleep 5
         elapsed=$((elapsed + 5))
         if [ $((elapsed % 30)) -eq 0 ]; then
@@ -1034,11 +939,9 @@ update() {
 
   progress "Running pre-update health checks"
   # Pre-update health checks
-  backup_reminder
   check_battery
   check_disk_space
   check_network
-  check_system_load
 
   # Optional: Estimate update sizes
   estimate_update_sizes
@@ -1088,8 +991,10 @@ update() {
     fi
 
     if [[ -z "${skip_softwareupdate:-}" ]] && command_exists softwareupdate; then
+      local sw_list
+      sw_list=$(softwareupdate --list 2>&1 | grep -v "^Software Update Tool" | grep -v "^Copyright" || true)
       log "Available macOS software updates:"
-      softwareupdate --list 2>&1 | grep -v "^Software Update Tool" | grep -v "^Copyright" || true
+      while IFS= read -r line; do log "$line"; done <<< "$sw_list"
       progress "Installing macOS software updates"
       log "Installing Apple Software Updates"
       # --recommended installs security patches and minor updates headlessly.
@@ -1107,6 +1012,7 @@ update() {
     # Update Mac App Store using : https://github.com/argon/mas
     if command_exists mas; then
       log "Updating Mac App Store..."
+      MAS_NO_AUTO_INDEX=1
       mas upgrade || log "Warning: mas upgrade failed"
     fi
 
@@ -1163,8 +1069,6 @@ update() {
     echo "We don't have update functions for OS: ${OSTYPE}"
     echo "Moving on..."
   fi
-
-  sudo -v  # Refresh sudo credentials
 
   # Self-update (can be skipped with environment variable)
   if [[ -z "${skip_self_update:-}" ]]; then
@@ -1231,9 +1135,13 @@ update() {
       log "Yarn installed via corepack, enabling latest version"
       corepack enable || log "Warning: corepack enable failed"
       corepack prepare yarn@stable --activate || log "Warning: corepack yarn update failed"
+      progress "Cleaning yarn cache"
+      yarn cache clean || log "Warning: yarn cache clean failed"
     elif command_exists npm; then
       log "Attempting yarn update via npm..."
       npm install -g yarn --force || log "Warning: yarn update via npm failed"
+      progress "Cleaning yarn cache"
+      yarn cache clean || log "Warning: yarn cache clean failed"
     else
       log "Warning: Skipping yarn update - no safe update method available"
     fi
@@ -1282,6 +1190,8 @@ update() {
       echo "$pip_packages" | xargs -n1 pip install -U --user || log "Warning: pip package updates failed"
     fi
     export PIP_REQUIRE_VIRTUALENV=true
+    progress "Purging pip cache"
+    pip cache purge || log "Warning: pip cache purge failed"
   fi
 
   if command_exists pip3; then
@@ -1308,6 +1218,8 @@ update() {
       echo "$pip3_packages" | xargs -n1 pip3 install -U --user || log "Warning: pip3 package updates failed"
     fi
     export PIP_REQUIRE_VIRTUALENV=true
+    progress "Purging pip3 cache"
+    pip3 cache purge || log "Warning: pip3 cache purge failed"
   fi
 
   if command_exists pipenv; then
@@ -1325,10 +1237,16 @@ update() {
   fi
 
   if command_exists cargo; then
+    local cargo_installed
+    cargo_installed=$(cargo install --list)
     # Check if cargo-update is installed for updating cargo packages
-    if cargo install --list | grep -q "cargo-update"; then
+    if echo "$cargo_installed" | grep -q "cargo-update"; then
       log "Updating cargo-installed packages..."
       cargo install-update -a || log "Warning: cargo install-update failed"
+    fi
+    if echo "$cargo_installed" | grep -q "cargo-cache"; then
+      progress "Cleaning cargo cache"
+      cargo cache --autoclean || log "Warning: cargo cache autoclean failed"
     fi
   fi
 
@@ -1495,6 +1413,8 @@ update() {
       log "Updating uv (includes uvx)..."
       uv self update || log "Warning: uv self update failed"
     fi
+    progress "Cleaning uv cache"
+    uv cache clean || log "Warning: uv cache clean failed"
   fi
 
   # pixi (Fast multi-language package manager built on conda ecosystem)
@@ -1638,8 +1558,6 @@ update() {
     rvm get stable || log "Warning: rvm update failed"
     rvm cleanup all || log "Warning: rvm cleanup failed"
   fi
-
-  sudo -v  # Refresh sudo credentials
 
   progress "Updating Ruby gems"
   if command_exists gem; then

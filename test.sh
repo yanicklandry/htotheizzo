@@ -28,7 +28,7 @@ run_htotheizzo_fast() {
     skip_softwareupdate=1 skip_xcode_select=1 \
     skip_disk_maintenance=1 skip_system_maintenance=1 \
     skip_spotlight=1 skip_launchpad=1 \
-    skip_backup_warning=1 skip_battery_check=1 \
+    skip_battery_check=1 \
     skip_brew=1 skip_mas=1 \
     skip_npm=1 skip_yarn=1 skip_pnpm=1 skip_bun=1 skip_deno=1 \
     skip_nvm=1 skip_nodenv=1 \
@@ -100,7 +100,7 @@ test_skip_flags() {
         MOCK_MODE=1 skip_file_logging=1 \
         skip_softwareupdate=1 skip_disk_maintenance=1 skip_system_maintenance=1 \
         skip_spotlight=1 skip_launchpad=1 skip_xcode_select=1 \
-        skip_backup_warning=1 skip_battery_check=1 \
+        skip_battery_check=1 \
         ./htotheizzo.sh 2>&1 || true)
 
     # Use || true: grep -c exits 1 on zero matches but still prints "0"
@@ -141,13 +141,11 @@ test_health_checks() {
 
     local has_disk;    has_disk=$(grep -c "Checking disk space" "$test_log" || true)
     local has_network; has_network=$(grep -c "Checking network connectivity" "$test_log" || true)
-    # backup_reminder is skipped in fast mode (skip_backup_warning=1), so check it was skipped
-    local has_backup_skip; has_backup_skip=$(grep -c "Skipped backup_warning" "$test_log" || true)
 
-    if [[ $has_disk -ge 1 ]] && [[ $has_network -ge 1 ]] && [[ $has_backup_skip -ge 1 ]]; then
-        log_pass "All health checks executed (backup_warning correctly skipped)"
+    if [[ $has_disk -ge 1 ]] && [[ $has_network -ge 1 ]]; then
+        log_pass "All health checks executed"
     else
-        log_fail "Missing health checks (disk:$has_disk network:$has_network backup_skipped:$has_backup_skip)"
+        log_fail "Missing health checks (disk:$has_disk network:$has_network)"
     fi
 }
 
