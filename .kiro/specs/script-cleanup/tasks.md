@@ -28,15 +28,15 @@
   - _Boundary: htotheizzo.sh pre-check section_
   - _Depends: 2.1_
 
-- [ ] 3. Remove replace_sysd dead code
-- [ ] 3.1 Delete replace_sysd function body (lines 711–717) from htotheizzo.sh
+- [x] 3. Remove replace_sysd dead code
+- [x] 3.1 Delete replace_sysd function body (lines 711–717) from htotheizzo.sh
   - Remove the entire `replace_sysd()` block.
   - Confirm via grep that no call site for `replace_sysd` exists anywhere in the file.
   - _Requirements: 3.1, 3.2_
   - _Boundary: htotheizzo.sh function block_
 
-- [ ] 4. Deduplicate softwareupdate --list invocation
-- [ ] 4.1 Refactor the softwareupdate block (lines 1090–1105) to capture --list output in a variable
+- [x] 4. Deduplicate softwareupdate --list invocation
+- [x] 4.1 Refactor the softwareupdate block (lines 1090–1105) to capture --list output in a variable
   - Capture the output of `softwareupdate --list 2>&1` into a local variable (e.g. `sw_list`) using `|| true` to prevent abort on non-zero exit.
   - Log the captured variable so the available-updates list is still visible in script output.
   - The install step (`--install --all` or `--install --recommended`) must not trigger a second `--list` call.

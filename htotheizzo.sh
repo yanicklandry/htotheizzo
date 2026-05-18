@@ -991,8 +991,10 @@ update() {
     fi
 
     if [[ -z "${skip_softwareupdate:-}" ]] && command_exists softwareupdate; then
+      local sw_list
+      sw_list=$(softwareupdate --list 2>&1 | grep -v "^Software Update Tool" | grep -v "^Copyright" || true)
       log "Available macOS software updates:"
-      softwareupdate --list 2>&1 | grep -v "^Software Update Tool" | grep -v "^Copyright" || true
+      log "$sw_list"
       progress "Installing macOS software updates"
       log "Installing Apple Software Updates"
       # --recommended installs security patches and minor updates headlessly.
