@@ -1186,6 +1186,8 @@ update() {
       echo "$pip_packages" | xargs -n1 pip install -U --user || log "Warning: pip package updates failed"
     fi
     export PIP_REQUIRE_VIRTUALENV=true
+    progress "Purging pip cache"
+    pip cache purge || log "Warning: pip cache purge failed"
   fi
 
   if command_exists pip3; then
@@ -1212,6 +1214,8 @@ update() {
       echo "$pip3_packages" | xargs -n1 pip3 install -U --user || log "Warning: pip3 package updates failed"
     fi
     export PIP_REQUIRE_VIRTUALENV=true
+    progress "Purging pip3 cache"
+    pip3 cache purge || log "Warning: pip3 cache purge failed"
   fi
 
   if command_exists pipenv; then

@@ -1,7 +1,7 @@
 # Implementation Plan
 
-- [ ] 1. Add pip and pip3 cache purge
-- [ ] 1.1 Add `pip cache purge` after the pip update block (P)
+- [x] 1. Add pip and pip3 cache purge
+- [x] 1.1 Add `pip cache purge` after the pip update block (P)
   - Locate the `if command_exists pip; then` block — find it by searching for the `export PIP_REQUIRE_VIRTUALENV=true` line that closes the pip update block
   - Insert immediately before the closing `fi`, after `export PIP_REQUIRE_VIRTUALENV=true`:
     ```bash
@@ -13,7 +13,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 6.1, 6.2, 6.3, 6.4_
   - _Boundary: htotheizzo.sh — pip block_
 
-- [ ] 1.2 Add `pip3 cache purge` after the pip3 update block (P)
+- [x] 1.2 Add `pip3 cache purge` after the pip3 update block (P)
   - Locate the `if command_exists pip3; then` block — find it by searching for the second `export PIP_REQUIRE_VIRTUALENV=true` (inside the pip3 update block, after `python3 -m pip install --upgrade pip`)
   - Insert immediately before the closing `fi`, after `export PIP_REQUIRE_VIRTUALENV=true`:
     ```bash
