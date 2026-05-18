@@ -1070,8 +1070,6 @@ update() {
     echo "Moving on..."
   fi
 
-  sudo -v  # Refresh sudo credentials
-
   # Self-update (can be skipped with environment variable)
   if [[ -z "${skip_self_update:-}" ]]; then
     update_itself
@@ -1544,8 +1542,6 @@ update() {
     rvm get stable || log "Warning: rvm update failed"
     rvm cleanup all || log "Warning: rvm cleanup failed"
   fi
-
-  sudo -v  # Refresh sudo credentials
 
   progress "Updating Ruby gems"
   if command_exists gem; then

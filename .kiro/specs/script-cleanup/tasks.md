@@ -66,14 +66,14 @@
   - _Requirements: 5.1, 5.2, 6.1, 6.2_
   - _Boundary: htotheizzo.sh cache cleanup block_
 
-- [ ] 6. Remove stray sudo -v calls
-- [ ] 6.1 (P) Delete the sudo -v line near line 1168
+- [x] 6. Remove stray sudo -v calls
+- [x] 6.1 (P) Delete the sudo -v line near line 1168
   - Remove the line `sudo -v  # Refresh sudo credentials` that follows the OS branch block.
   - Confirm `update_itself` (or equivalent) is the next executable statement in sequence.
   - _Requirements: 7.1, 7.3_
   - _Boundary: htotheizzo.sh update function_
 
-- [ ] 6.2 (P) Delete the sudo -v line near line 1643
+- [x] 6.2 (P) Delete the sudo -v line near line 1643
   - Remove the line `sudo -v  # Refresh sudo credentials` that precedes the gem update block.
   - Confirm `progress "Updating Ruby gems"` (or the gem update guard) is the next executable statement.
   - _Requirements: 7.2, 7.3_
