@@ -70,7 +70,7 @@ progress() {
 
 # Keep sudo credentials alive in background for the duration of the script
 keep_sudo_alive() {
-  ( while kill -0 $$ 2>/dev/null; do sudo -v 2>/dev/null; sleep 50; done ) &
+  ( while kill -0 $$ 2>/dev/null; do sudo -v 2>/dev/null; sleep 240; done ) &
   local keepalive_pid=$!
   disown "$keepalive_pid" 2>/dev/null || true
   trap "kill $keepalive_pid 2>/dev/null || true" EXIT INT TERM
@@ -997,6 +997,28 @@ update() {
       while IFS= read -r line; do log "$line"; done <<< "$sw_list"
       progress "Installing macOS software updates"
       log "Installing Apple Software Updates"
+      # Warn before installing a major OS upgrade: it requires interactive auth even as root.
+      if [[ -z "${skip_softwareupdate_major:-}" ]]; then
+        local current_major
+        current_major=$(sw_vers -productVersion 2>/dev/null | cut -d. -f1 || true)
+        if [[ -n "$current_major" ]]; then
+          local found_major_upgrade=0
+          while IFS= read -r ver_line; do
+            local update_major
+            update_major=$(echo "$ver_line" | grep -oE '[0-9]+' | head -1 || true)
+            if [[ -n "$update_major" && "$update_major" -gt "$current_major" ]] 2>/dev/null; then
+              found_major_upgrade=1
+              break
+            fi
+          done < <(echo "$sw_list" | grep -oE 'Version: [0-9]+' || true)
+          if [[ "$found_major_upgrade" -eq 1 ]]; then
+            log "⚠ WARNING: A major macOS upgrade is available in the update list."
+            log "⚠ Major OS upgrades require an interactive password that bypasses sudo credential caching."
+            log "⚠ You will be prompted for your password even though sudo is already authenticated."
+            log "⚠ To skip major upgrades and install only recommended updates, set: skip_softwareupdate_major=1"
+          fi
+        fi
+      fi
       # --recommended installs security patches and minor updates headlessly.
       # Major OS upgrades (e.g. macOS Tahoe) require interactive auth even as root;
       # skip them here with skip_softwareupdate_major=1 or upgrade manually.
