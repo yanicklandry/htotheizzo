@@ -2,10 +2,18 @@
 
 set -euo pipefail
 
+# Non-interactive mode for all package managers (no confirmation prompts)
+export HOMEBREW_NO_INTERACTIVE=1
+export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+export DEBIAN_FRONTEND=noninteractive
+
 THISUSER=$(who am i | awk '{print $1}')
 
 # Mock mode - if set, commands will be logged but not executed
 MOCK_MODE="${MOCK_MODE:-}"
+
+# Verbose mode - if set, package manager output streams live instead of being captured
+VERBOSE_MODE="${VERBOSE_MODE:-}"
 
 # Error tracking array
 declare -a ERROR_LOG=()
@@ -106,6 +114,7 @@ help() {
   echo "Options:"
   echo "  --help, -h          Show this help message"
   echo "  --mock, --dry-run   Run in mock mode (no actual operations)"
+  echo "  --verbose, -v       Stream full package manager output live"
   echo "  --install-cron      Install htotheizzo as a cron job"
   echo "  --create-snapshot   Create system snapshot before updates"
   echo ""
@@ -754,23 +763,39 @@ update_homebrew() {
   if [[ "$with_casks" == "true" ]]; then
     brew outdated --greedy || log "Warning: brew outdated failed"
 
-    # Capture cask upgrade errors with details
-    local cask_output
-    local cask_exit_code=0
-    cask_output=$(brew upgrade --cask --greedy 2>&1) || cask_exit_code=$?
+    if [[ -n "${VERBOSE_MODE:-}" ]]; then
+      brew upgrade --cask --greedy || log "Warning: brew cask upgrade failed"
+    else
+      # Capture cask upgrade output to extract error details
+      local cask_output
+      local cask_exit_code=0
+      cask_output=$(brew upgrade --cask --greedy 2>&1) || cask_exit_code=$?
 
-    if [[ $cask_exit_code -ne 0 ]]; then
-      # Extract failed cask names from error output
-      local failed_casks=$(echo "$cask_output" | grep -oE "Cask '[^']+'" | sed "s/Cask '//" | sed "s/'$//" | tr '\n' ', ' | sed 's/,$//')
-      if [[ -n "$failed_casks" ]]; then
-        log "Warning: brew cask upgrade failed for: $failed_casks"
-      else
-        log "Warning: brew cask upgrade failed"
+      if [[ $cask_exit_code -ne 0 ]]; then
+        local failed_casks=$(echo "$cask_output" | grep -oE "Cask '[^']+'" | sed "s/Cask '//" | sed "s/'$//" | tr '\n' ', ' | sed 's/,$//')
+        if [[ -n "$failed_casks" ]]; then
+          log "Warning: brew cask upgrade failed for: $failed_casks"
+        else
+          log "Warning: brew cask upgrade failed"
+        fi
+        log "Cask upgrade output: $cask_output"
+
+        # Detect missing app source errors and suggest the fix
+        while IFS= read -r line; do
+          if [[ "$line" =~ ^Error:\ ([^:]+):\ It\ seems\ the\ App\ source\ \'([^\']+)\'\ is\ not\ there ]]; then
+            local broken_cask="${BASH_REMATCH[1]}"
+            log "Fix: run: brew uninstall --cask --force $broken_cask && brew install --cask $broken_cask"
+          fi
+        done <<< "$cask_output"
       fi
     fi
   fi
 
-  brew upgrade || log "Warning: brew upgrade failed"
+  if [[ -n "${VERBOSE_MODE:-}" ]]; then
+    brew upgrade || log "Warning: brew upgrade failed"
+  else
+    brew upgrade 2>&1 | grep -E "^(==>|Error:|Warning:|✔|✘)" || log "Warning: brew upgrade failed"
+  fi
   brew cleanup -s || log "Warning: brew cleanup failed"
   brew autoremove || log "Warning: brew autoremove failed"
 
@@ -1632,6 +1657,11 @@ main() {
       --mock|--dry-run)
         export MOCK_MODE=1
         log "Running in MOCK mode - commands will be logged but not executed"
+        shift
+        ;;
+      --verbose|-v)
+        export VERBOSE_MODE=1
+        log "Running in verbose mode - full package manager output will be shown"
         shift
         ;;
       --install-cron)
