@@ -45,6 +45,7 @@ run_htotheizzo_fast() {
     skip_tfenv=1 \
     skip_gh=1 skip_gcloud=1 skip_az=1 \
     skip_pod=1 skip_kav=1 skip_apm=1 skip_fisher=1 \
+    skip_sparkle=1 \
     skip_antibody=1 skip_zinit=1 skip_jenv=1 \
     skip_self_update=1 \
     skip_size_estimate=1 \
