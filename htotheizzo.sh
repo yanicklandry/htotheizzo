@@ -881,6 +881,28 @@ update_sparkle_apps() {
       local feed; feed=$(defaults read "$app/Contents/Info" SUFeedURL 2>/dev/null) || continue
       [[ "$feed" == http* ]] || continue
       found=$((found + 1))
+
+      local app_name
+      app_name=$(basename "$app" .app)
+
+      # Running-app skip (opt-in via skip_sparkle_running=1)
+      if [[ -n "${skip_sparkle_running:-}" ]]; then
+        local is_running
+        is_running=$(osascript -e "application \"$app_name\" is running" 2>/dev/null || echo "false")
+        if [[ "$is_running" == "true" ]]; then
+          log "Skipping running Sparkle app: $app_name"
+          continue
+        fi
+      fi
+
+      # Mock mode gate
+      if [[ -n "${MOCK_MODE:-}" ]]; then
+        log "[MOCK] Would update Sparkle app: $app_name"
+        continue
+      fi
+
+      # Delegate to antares updater
+      "$updater" "$app" || log "Warning: Sparkle update failed for $app_name"
     done
   done
 

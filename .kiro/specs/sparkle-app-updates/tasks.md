@@ -30,7 +30,7 @@
   - Running `./test.sh` with a fixture dir containing one app with a valid feed and one without a feed confirms only the valid app reaches the delegation step.
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 2.3 Implement per-app delegation with mock-mode gate, running-app skip, and failure handling
+- [x] 2.3 Implement per-app delegation with mock-mode gate, running-app skip, and failure handling
   - For each in-scope app: if `skip_sparkle_running` is set and `osascript -e 'application "'"$app_name"'" is running' 2>/dev/null` returns `true`, emit `log "Skipping running app: $app_name"` and `continue`.
   - If `[[ -n "$MOCK_MODE" ]]`: emit `log "[MOCK] Would update Sparkle app: $app_name"` and `continue` — the stub `update-app.sh` must never be executed in mock mode.
   - Otherwise invoke `"$updater" "$app"` (absolute bundle path, robust to spaces); on non-zero exit: `log "Warning: Sparkle update failed for $app_name"` and `continue` — the loop keeps going and the warning is captured into `ERROR_LOG` for the end-of-run summary.
