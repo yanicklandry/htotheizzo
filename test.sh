@@ -88,6 +88,59 @@ cleanup() {
     fi
 }
 
+# Fixture factory for Sparkle-app update tests.
+#
+# Creates a minimal .app bundle with a SUFeedURL plist and a stub update-app.sh
+# under a caller-supplied temp directory, so tests never touch /Applications or
+# the real antares install.
+#
+# Usage:
+#   make_sparkle_fixture <fixture_dir> [app_name] [feed_url]
+#
+# Outputs (relative to fixture_dir):
+#   Applications/<app_name>.app/Contents/Info.plist  — contains SUFeedURL
+#   antares/bin/update-app.sh                         — stub updater script
+#   stub_args                                         — sentinel; each invocation
+#                                                       of the stub appends its
+#                                                       args here
+#
+# The stub respects two env vars the test may export before running htotheizzo:
+#   STUB_SENTINEL   — path to the sentinel file (defaults to fixture_dir/stub_args)
+#   STUB_EXIT_CODE  — exit code the stub should return (defaults to 0)
+#
+# Tests should set:
+#   ANTARES_DIR="$fixture_dir/antares"
+#   SPARKLE_APP_DIRS="$fixture_dir/Applications"
+make_sparkle_fixture() {
+    local fixture_dir="$1"
+    local app_name="${2:-TestApp}"
+    local feed_url="${3:-https://example.com/appcast.xml}"
+
+    local app_contents="$fixture_dir/Applications/$app_name.app/Contents"
+    local stub_path="$fixture_dir/antares/bin/update-app.sh"
+
+    # Create directory structure
+    mkdir -p "$app_contents"
+    mkdir -p "$(dirname "$stub_path")"
+
+    # Write SUFeedURL into the Info.plist using defaults(1) so that
+    # `defaults read ... SUFeedURL` works identically to production code.
+    defaults write "$app_contents/Info" SUFeedURL "$feed_url"
+
+    # Write stub updater — records args to sentinel, honours STUB_EXIT_CODE
+    cat > "$stub_path" <<'STUB'
+#!/usr/bin/env bash
+_sentinel="${STUB_SENTINEL:-}"
+if [[ -z "$_sentinel" ]]; then
+    # Derive sentinel from our own location: <fixture>/antares/bin -> <fixture>/stub_args
+    _sentinel="$(cd "$(dirname "$0")/../.." && pwd)/stub_args"
+fi
+echo "$@" >> "$_sentinel"
+exit "${STUB_EXIT_CODE:-0}"
+STUB
+    chmod +x "$stub_path"
+}
+
 # ============================================================================
 # SKIP FLAGS TESTS
 # ============================================================================

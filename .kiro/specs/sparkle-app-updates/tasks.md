@@ -6,7 +6,7 @@
   - Running the existing test suite (`./test.sh`) completes without touching `/Applications` and all previously passing tests still pass.
   - _Requirements: 4.1, 4.2, 6.1_
 
-- [ ] 1.2 Create a reusable test fixture factory for Sparkle-app tests
+- [x] 1.2 Create a reusable test fixture factory for Sparkle-app tests
   - Add a `make_sparkle_fixture` helper in `test.sh` (or inline per test) that creates a temp directory, writes a minimal `.app/Contents/Info.plist` with a configurable `SUFeedURL` value, and places a configurable stub `update-app.sh` script (defaults to exit 0, records its args to a sentinel file, and can be overridden to exit non-zero).
   - The factory is called by subsequent `test_sparkle_*` functions; each test sets its own `ANTARES_DIR` and `SPARKLE_APP_DIRS` to the temp paths so no test touches the real `/Applications` or the real antares install.
   - Fixture teardown happens in the existing `cleanup()` function or via a `trap` in each test.
