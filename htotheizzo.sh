@@ -861,6 +861,18 @@ mac_disk_maintenance() {
   fi
 }
 
+update_sparkle_apps() {
+  progress "Updating Sparkle apps"
+  log "Updating Sparkle apps..."
+
+  local updater="${ANTARES_DIR:-$HOME/Developer/2026/antares}/bin/update-app.sh"
+
+  if [[ ! -x "$updater" ]]; then
+    log "Antares updater not found at $updater; skipping Sparkle app updates"
+    return 0
+  fi
+}
+
 mac_system_maintenance() {
   log "Running system maintenance scripts..."
   

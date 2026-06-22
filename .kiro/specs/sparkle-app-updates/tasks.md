@@ -13,7 +13,7 @@
   - _Requirements: 1.1, 1.2, 6.3_
 
 - [ ] 2. Core: implement `update_sparkle_apps()` in `htotheizzo.sh`
-- [ ] 2.1 Implement function entry: progress label and antares resolution
+- [x] 2.1 Implement function entry: progress label and antares resolution
   - Define `update_sparkle_apps()` near the other `mac_*` helpers (after `mac_disk_maintenance()`).
   - First two statements emit `progress "Updating Sparkle apps"` and `log "Updating Sparkle apps..."` unconditionally — before any guard — so the section is always visible in the GUI and run log.
   - Resolve the updater path: `local updater="${ANTARES_DIR:-$HOME/Developer/2026/antares}/bin/update-app.sh"`.
