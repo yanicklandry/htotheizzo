@@ -37,7 +37,7 @@
   - Running `./test.sh` with a stub that exits non-zero shows the warning in output and the run exits 0; mock mode test shows `[MOCK]` lines and confirms the stub sentinel file is absent.
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 5.1, 5.2, 5.4, 6.2, 6.3_
 
-- [ ] 2.4 Implement "no apps found" path and function close
+- [x] 2.4 Implement "no apps found" path and function close
   - After the discovery loop completes, check `[[ $found -eq 0 ]]`; if true emit `log "No Sparkle apps found in ${SPARKLE_APP_DIRS:-/Applications}."`.
   - The function ends without an explicit return (returns 0 by reaching the end).
   - Running `./test.sh` with an empty `SPARKLE_APP_DIRS` temp dir produces the "No Sparkle apps found" log line and exits 0.

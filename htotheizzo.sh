@@ -907,6 +907,10 @@ update_sparkle_apps() {
   done
 
   eval "$_nullglob"
+
+  if [[ $found -eq 0 ]]; then
+    log "No Sparkle apps found in ${SPARKLE_APP_DIRS:-/Applications}."
+  fi
 }
 
 mac_system_maintenance() {
