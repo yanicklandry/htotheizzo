@@ -21,7 +21,7 @@
   - `progress "Updating Sparkle apps"` appears in output before any early return; `./test.sh` with a missing antares exits 0 and shows the skip message.
   - _Requirements: 3.1, 3.2, 3.3, 5.3, 6.4_
 
-- [ ] 2.2 Implement Sparkle app discovery loop
+- [x] 2.2 Implement Sparkle app discovery loop
   - Split `SPARKLE_APP_DIRS` (default `/Applications`) on `:` using `IFS=:` to support colon-separated roots and paths with spaces.
   - For each root, glob `"$root"/*.app` using `shopt -s nullglob` (scoped, restored after) or equivalent guard so an empty root directory does not produce a literal-glob string under `set -euo pipefail`.
   - For each `.app` bundle: run `defaults read "$app/Contents/Info" SUFeedURL 2>/dev/null` using `|| continue` so an absent key is a silent skip (not an error and not a warning).

@@ -871,6 +871,20 @@ update_sparkle_apps() {
     log "Antares updater not found at $updater; skipping Sparkle app updates"
     return 0
   fi
+
+  local found=0
+  local _nullglob; _nullglob=$(shopt -p nullglob || true); shopt -s nullglob
+
+  local IFS=:
+  for root in ${SPARKLE_APP_DIRS:-/Applications}; do
+    for app in "$root"/*.app; do
+      local feed; feed=$(defaults read "$app/Contents/Info" SUFeedURL 2>/dev/null) || continue
+      [[ "$feed" == http* ]] || continue
+      found=$((found + 1))
+    done
+  done
+
+  eval "$_nullglob"
 }
 
 mac_system_maintenance() {
