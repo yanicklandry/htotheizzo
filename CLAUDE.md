@@ -35,6 +35,13 @@ The codebase consists of shell scripts and a modern GUI:
 - `command_exists()` - Checks if commands exist and handles skipping via environment variables
 - `update_itself()` - Self-updating mechanism using git
 
+## Only Mode
+
+Set `only_<name>=1` to run **only** the specified section(s) and silently skip everything else:
+- `only_sparkle=1` - Run only Sparkle app updates (skip all other tools)
+- `only_brew=1 only_npm=1` - Run only Homebrew and npm updates
+- Any `only_*` variable activates only-mode; multiple `only_*` vars can be combined
+
 ## Skip Commands
 
 The script supports skipping specific package managers using environment variables:
