@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Foundation: test infrastructure and shared fixtures
+- [x] 1. Foundation: test infrastructure and shared fixtures
 - [x] 1.1 Add `skip_sparkle=1` to `run_htotheizzo_fast` in `test.sh`
   - Add `skip_sparkle=1` to the environment block of `run_htotheizzo_fast()` alongside the other `skip_*` vars so no existing fast-mode test ever scans `/Applications`.
   - Running the existing test suite (`./test.sh`) completes without touching `/Applications` and all previously passing tests still pass.
@@ -12,7 +12,7 @@
   - Fixture teardown happens in the existing `cleanup()` function or via a `trap` in each test.
   - _Requirements: 1.1, 1.2, 6.3_
 
-- [ ] 2. Core: implement `update_sparkle_apps()` in `htotheizzo.sh`
+- [x] 2. Core: implement `update_sparkle_apps()` in `htotheizzo.sh`
 - [x] 2.1 Implement function entry: progress label and antares resolution
   - Define `update_sparkle_apps()` near the other `mac_*` helpers (after `mac_disk_maintenance()`).
   - First two statements emit `progress "Updating Sparkle apps"` and `log "Updating Sparkle apps..."` unconditionally — before any guard — so the section is always visible in the GUI and run log.
@@ -43,7 +43,7 @@
   - Running `./test.sh` with an empty `SPARKLE_APP_DIRS` temp dir produces the "No Sparkle apps found" log line and exits 0.
   - _Requirements: 1.4_
 
-- [ ] 3. Integration: wire call site and update documentation
+- [x] 3. Integration: wire call site and update documentation
 - [x] 3.1 Add the `skip_sparkle` call-site guard in the macOS branch of `update()`
   - Inside the `[[ "$OSTYPE" == "darwin"* ]]` branch of `update()`, after the `mas upgrade` and Microsoft AutoUpdate block (~line 1070), add the explicit skip guard:
     ```
@@ -63,43 +63,43 @@
   - Running `./htotheizzo.sh --help` shows `skip_sparkle` in the output; the `CLAUDE.md` table lists all four new env vars with descriptions.
   - _Requirements: 4.3_
 
-- [ ] 4. Validation: integration tests and regression
-- [ ] 4.1 Test: skip flag bypasses the entire section
+- [x] 4. Validation: integration tests and regression
+- [x] 4.1 Test: skip flag bypasses the entire section
   - Run htotheizzo with `skip_sparkle=1` and grep output for `Skipped sparkle`.
   - Assert the stub `update-app.sh` sentinel file is absent (updater was never invoked).
   - _Requirements: 4.1, 4.2_
 
-- [ ] 4.2 Test: missing antares exits cleanly without warning
+- [x] 4.2 Test: missing antares exits cleanly without warning
   - Point `ANTARES_DIR` at an empty temp dir; run htotheizzo without `skip_sparkle`.
   - Assert output contains the informational antares-not-found message and does NOT contain `Warning:`.
   - Assert overall run exits 0.
   - _Requirements: 3.3_
 
-- [ ] 4.3 Test: mock mode never invokes the updater
+- [x] 4.3 Test: mock mode never invokes the updater
   - Use the fixture from Task 1.2 (one app with a valid `http` feed, stub `update-app.sh` that writes a sentinel).
   - Run htotheizzo with `MOCK_MODE=1`.
   - Assert output contains `[MOCK] Would update Sparkle app:` and the sentinel file does not exist.
   - _Requirements: 6.3_
 
-- [ ] 4.4 Test: valid-feed apps are delegated; non-http feed apps are skipped
+- [x] 4.4 Test: valid-feed apps are delegated; non-http feed apps are skipped
   - Fixture contains two apps: one with `https://example.com/appcast.xml` feed, one with `file:///local` feed.
   - Run without mock mode; stub records invocation args.
   - Assert stub was called exactly once with the absolute path of the valid-feed app; the non-http app does not appear in args.
   - _Requirements: 1.1, 1.2, 2.1_
 
-- [ ] 4.5 Test: empty app dirs produces "no apps found" log
+- [x] 4.5 Test: empty app dirs produces "no apps found" log
   - `SPARKLE_APP_DIRS` points at an empty temp dir.
   - Assert output contains "No Sparkle apps found" and run exits 0.
   - _Requirements: 1.4_
 
-- [ ] 4.6 Test: per-app failure is warned and run continues
+- [x] 4.6 Test: per-app failure is warned and run continues
   - Stub `update-app.sh` exits non-zero for the fixture app.
   - Assert output contains `Warning: Sparkle update failed`.
   - Assert run exits 0.
   - Assert the end-of-run summary contains the warning count (matches `updates completed with.*warning` pattern already used by `test_error_tracking`).
   - _Requirements: 5.1, 5.2, 5.4_
 
-- [ ] 4.7 Regression: existing fast-path tests still pass
+- [x] 4.7 Regression: existing fast-path tests still pass
   - Run the full `./test.sh` suite.
   - Assert `test_skip_flags`, `test_mock_mode`, `test_health_checks`, and `test_error_tracking` all show `[PASS]` and no `/Applications` scan occurs during the run.
   - _Requirements: 4.1, 6.1_
