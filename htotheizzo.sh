@@ -1121,6 +1121,12 @@ update() {
       open "/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app" || log "Warning: failed to open Microsoft AutoUpdate"
     fi
 
+    if [[ -z "${skip_sparkle:-}" ]]; then
+      update_sparkle_apps
+    else
+      log "Skipped sparkle"
+    fi
+
     # Run macOS maintenance tasks (can be skipped with environment variables)
     if [[ -z "${skip_disk_maintenance:-}" ]]; then
       mac_disk_maintenance

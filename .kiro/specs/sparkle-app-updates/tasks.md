@@ -44,7 +44,7 @@
   - _Requirements: 1.4_
 
 - [ ] 3. Integration: wire call site and update documentation
-- [ ] 3.1 Add the `skip_sparkle` call-site guard in the macOS branch of `update()`
+- [x] 3.1 Add the `skip_sparkle` call-site guard in the macOS branch of `update()`
   - Inside the `[[ "$OSTYPE" == "darwin"* ]]` branch of `update()`, after the `mas upgrade` and Microsoft AutoUpdate block (~line 1070), add the explicit skip guard:
     ```
     if [[ -z "${skip_sparkle:-}" ]]; then
