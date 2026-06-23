@@ -57,7 +57,7 @@
   - Running `skip_sparkle=1 MOCK_MODE=1 ./htotheizzo.sh 2>&1 | grep "Skipped sparkle"` prints the skip line; running without the flag in MOCK mode shows the `progress "Updating Sparkle apps"` line.
   - _Requirements: 4.1, 4.2, 4.3, 6.1_
 
-- [ ] 3.2 Update `help()` output and `CLAUDE.md` skip-commands documentation
+- [x] 3.2 Update `help()` output and `CLAUDE.md` skip-commands documentation
   - Add `skip_sparkle=1` to the env-var examples in `help()` in `htotheizzo.sh`.
   - Add entries to the skip-commands table in `CLAUDE.md` for `skip_sparkle`, `skip_sparkle_running`, `ANTARES_DIR`, and `SPARKLE_APP_DIRS` (colon-separated).
   - Running `./htotheizzo.sh --help` shows `skip_sparkle` in the output; the `CLAUDE.md` table lists all four new env vars with descriptions.

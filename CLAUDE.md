@@ -77,6 +77,10 @@ The script supports skipping specific package managers using environment variabl
 - `skip_jenv=1` - Skip jenv updates
 - `skip_goenv=1` - Skip goenv updates
 - `skip_nodenv=1` - Skip nodenv updates
+- `skip_sparkle=1` - Skip Sparkle app updates
+- `skip_sparkle_running=1` - Skip Sparkle apps that are currently running (instead of quitting and relaunching them)
+- `ANTARES_DIR` - Path to antares repo root (default: `$HOME/Developer/2026/antares`); used to locate `bin/update-app.sh`
+- `SPARKLE_APP_DIRS` - Colon-separated list of directories to scan for Sparkle apps (default: `/Applications`)
 
 ## Platform-Specific Behavior
 

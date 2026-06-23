@@ -120,7 +120,7 @@ help() {
   echo ""
   echo "Environment Variables (set to 1 to skip):"
   echo "  skip_<command>      Skip specific package manager or feature"
-  echo "  Examples: skip_brew=1, skip_npm=1, skip_disk_check=1"
+  echo "  Examples: skip_brew=1, skip_npm=1, skip_disk_check=1, skip_sparkle=1"
   echo ""
   echo "Features:"
   echo "  - Updates 60+ package managers and tools"
