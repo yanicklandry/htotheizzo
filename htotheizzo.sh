@@ -967,9 +967,11 @@ update_sparkle_apps() {
     app_name=$(basename "$app" .app)
 
     # Skip apps managed by Homebrew Cask (already updated by brew upgrade --cask)
-    local _real_app
-    _real_app=$(readlink -f "$app" 2>/dev/null || echo "$app")
-    if [[ "$_real_app" == */Caskroom/* || "$app" == */Caskroom/* ]]; then
+    # Brew cask copies .app into /Applications, so resolve via Caskroom directory lookup
+    local _norm_name
+    _norm_name=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+    if ls /opt/homebrew/Caskroom/ 2>/dev/null | grep -qi "^${_norm_name}" \
+    || ls /usr/local/Caskroom/ 2>/dev/null | grep -qi "^${_norm_name}"; then
       log "Skipping Sparkle app managed by Homebrew Cask: $app_name"
       continue
     fi
