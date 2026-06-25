@@ -579,6 +579,7 @@ test_sparkle_delegation() {
     output=$(ANTARES_DIR="$fixture_dir/antares" \
              SPARKLE_APP_DIRS="$fixture_dir/Applications" \
              STUB_SENTINEL="$sentinel" \
+             SKIP_SUDO=1 \
              skip_file_logging=1 \
              skip_softwareupdate=1 skip_xcode_select=1 skip_disk_maintenance=1 \
              skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 \
@@ -630,6 +631,7 @@ test_sparkle_no_apps_found() {
     local output
     output=$(ANTARES_DIR="$fixture_dir/antares" \
              SPARKLE_APP_DIRS="$apps_dir" \
+             SKIP_SUDO=1 \
              skip_file_logging=1 \
              skip_softwareupdate=1 skip_xcode_select=1 skip_disk_maintenance=1 \
              skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 \
@@ -670,6 +672,7 @@ test_sparkle_failure_tolerance() {
              SPARKLE_APP_DIRS="$fixture_dir/Applications" \
              STUB_SENTINEL="$sentinel" \
              STUB_EXIT_CODE=1 \
+             SKIP_SUDO=1 \
              skip_file_logging=1 \
              skip_softwareupdate=1 skip_xcode_select=1 skip_disk_maintenance=1 \
              skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 \

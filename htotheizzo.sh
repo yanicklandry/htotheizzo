@@ -1087,8 +1087,10 @@ update() {
   setup_file_logging
 
   # Request administrator privileges with native dialog (includes Touch ID)
-  # Skip in mock mode
-  if [[ -z "${MOCK_MODE:-}" ]]; then
+  # Skip in mock mode or when SKIP_SUDO=1 (non-interactive test environments)
+  if [[ -n "${MOCK_MODE:-}" || -n "${SKIP_SUDO:-}" ]]; then
+    log "Mock mode: Skipping sudo authentication"
+  else
     echo "Requesting administrator privileges..."
     if ! sudo -v; then
       log "Authentication failed. Exiting."
@@ -1097,8 +1099,6 @@ update() {
     fi
     # Keep sudo credentials refreshed for the entire run
     keep_sudo_alive
-  else
-    log "Mock mode: Skipping sudo authentication"
   fi
 
   echo "htotheizzo is running the update functions"
