@@ -88,6 +88,7 @@ The script supports skipping specific package managers using environment variabl
 - `skip_sparkle_running=1` - Skip Sparkle apps that are currently running (instead of quitting and relaunching them)
 - `ANTARES_DIR` - Path to antares repo root (default: `$HOME/Developer/2026/antares`); used to locate `bin/update-app.sh`
 - `SPARKLE_APP_DIRS` - Colon-separated list of directories to scan for Sparkle apps (default: `/Applications`)
+- Apps managed by Homebrew Cask (under `/opt/homebrew/Caskroom` or `/usr/local/Caskroom`) are automatically skipped since brew already updates them via `brew upgrade --cask --greedy`
 
 ## Platform-Specific Behavior
 

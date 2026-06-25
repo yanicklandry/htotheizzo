@@ -966,6 +966,14 @@ update_sparkle_apps() {
     local app_name
     app_name=$(basename "$app" .app)
 
+    # Skip apps managed by Homebrew Cask (already updated by brew upgrade --cask)
+    local _real_app
+    _real_app=$(readlink -f "$app" 2>/dev/null || echo "$app")
+    if [[ "$_real_app" == */Caskroom/* || "$app" == */Caskroom/* ]]; then
+      log "Skipping Sparkle app managed by Homebrew Cask: $app_name"
+      continue
+    fi
+
     # Running-app skip (opt-in via skip_sparkle_running=1)
     if [[ -n "${skip_sparkle_running:-}" ]]; then
       local is_running
