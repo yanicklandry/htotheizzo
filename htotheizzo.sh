@@ -189,10 +189,13 @@ check_disk_space() {
 
   log "Checking disk space..."
 
-  # Get disk usage percentage for root volume
+  # Get disk usage percentage for the primary data volume
   local disk_used
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    disk_used=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+    # On macOS APFS, / is a small read-only system volume; real data lives on /System/Volumes/Data
+    local data_vol="/System/Volumes/Data"
+    [[ -d "$data_vol" ]] || data_vol="/"
+    disk_used=$(df -h "$data_vol" | awk 'NR==2 {print $5}' | sed 's/%//')
   else
     disk_used=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
   fi
