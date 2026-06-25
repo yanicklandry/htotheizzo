@@ -45,6 +45,7 @@ run_htotheizzo_fast() {
     skip_tfenv=1 \
     skip_gh=1 skip_gcloud=1 skip_az=1 \
     skip_pod=1 skip_kav=1 skip_apm=1 skip_fisher=1 \
+    skip_sparkle=1 \
     skip_antibody=1 skip_zinit=1 skip_jenv=1 \
     skip_self_update=1 \
     skip_size_estimate=1 \
@@ -85,6 +86,59 @@ cleanup() {
     if [[ -n "$TEST_DIR" && -d "$TEST_DIR" ]]; then
         rm -rf "$TEST_DIR"
     fi
+}
+
+# Fixture factory for Sparkle-app update tests.
+#
+# Creates a minimal .app bundle with a SUFeedURL plist and a stub update-app.sh
+# under a caller-supplied temp directory, so tests never touch /Applications or
+# the real antares install.
+#
+# Usage:
+#   make_sparkle_fixture <fixture_dir> [app_name] [feed_url]
+#
+# Outputs (relative to fixture_dir):
+#   Applications/<app_name>.app/Contents/Info.plist  — contains SUFeedURL
+#   antares/bin/update-app.sh                         — stub updater script
+#   stub_args                                         — sentinel; each invocation
+#                                                       of the stub appends its
+#                                                       args here
+#
+# The stub respects two env vars the test may export before running htotheizzo:
+#   STUB_SENTINEL   — path to the sentinel file (defaults to fixture_dir/stub_args)
+#   STUB_EXIT_CODE  — exit code the stub should return (defaults to 0)
+#
+# Tests should set:
+#   ANTARES_DIR="$fixture_dir/antares"
+#   SPARKLE_APP_DIRS="$fixture_dir/Applications"
+make_sparkle_fixture() {
+    local fixture_dir="$1"
+    local app_name="${2:-TestApp}"
+    local feed_url="${3:-https://example.com/appcast.xml}"
+
+    local app_contents="$fixture_dir/Applications/$app_name.app/Contents"
+    local stub_path="$fixture_dir/antares/bin/update-app.sh"
+
+    # Create directory structure
+    mkdir -p "$app_contents"
+    mkdir -p "$(dirname "$stub_path")"
+
+    # Write SUFeedURL into the Info.plist using defaults(1) so that
+    # `defaults read ... SUFeedURL` works identically to production code.
+    defaults write "$app_contents/Info" SUFeedURL "$feed_url"
+
+    # Write stub updater — records args to sentinel, honours STUB_EXIT_CODE
+    cat > "$stub_path" <<'STUB'
+#!/usr/bin/env bash
+_sentinel="${STUB_SENTINEL:-}"
+if [[ -z "$_sentinel" ]]; then
+    # Derive sentinel from our own location: <fixture>/antares/bin -> <fixture>/stub_args
+    _sentinel="$(cd "$(dirname "$0")/../.." && pwd)/stub_args"
+fi
+echo "$@" >> "$_sentinel"
+exit "${STUB_EXIT_CODE:-0}"
+STUB
+    chmod +x "$stub_path"
 }
 
 # ============================================================================
@@ -391,6 +445,276 @@ test_full_integration() {
 }
 
 # ============================================================================
+# SPARKLE APP UPDATES TESTS
+# ============================================================================
+
+test_sparkle_skip_flag() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "skip_sparkle=1 bypasses Sparkle section"
+
+    local fixture_dir; fixture_dir=$(mktemp -d)
+    make_sparkle_fixture "$fixture_dir" "TestApp" "https://example.com/appcast.xml"
+    local sentinel="$fixture_dir/stub_args"
+
+    local output
+    output=$(ANTARES_DIR="$fixture_dir/antares" \
+             SPARKLE_APP_DIRS="$fixture_dir/Applications" \
+             STUB_SENTINEL="$sentinel" \
+             skip_sparkle=1 MOCK_MODE=1 skip_file_logging=1 \
+             skip_softwareupdate=1 skip_xcode_select=1 skip_disk_maintenance=1 \
+             skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 \
+             skip_battery_check=1 skip_brew=1 skip_mas=1 \
+             skip_npm=1 skip_yarn=1 skip_pnpm=1 skip_bun=1 skip_deno=1 \
+             skip_nvm=1 skip_nodenv=1 skip_pip=1 skip_pip3=1 skip_pipenv=1 \
+             skip_poetry=1 skip_pdm=1 skip_uv=1 skip_pyenv=1 skip_conda=1 \
+             skip_mamba=1 skip_pixi=1 skip_gem=1 skip_rvm=1 skip_rbenv=1 \
+             skip_rustup=1 skip_cargo=1 skip_go=1 skip_goenv=1 skip_composer=1 \
+             skip_sdk=1 skip_jenv=1 skip_docker=1 skip_podman=1 skip_helm=1 \
+             skip_flutter=1 skip_asdf=1 skip_mise=1 skip_proto=1 skip_pkgx=1 \
+             skip_tfenv=1 skip_gh=1 skip_gcloud=1 skip_az=1 \
+             skip_pod=1 skip_kav=1 skip_apm=1 skip_fisher=1 \
+             skip_antibody=1 skip_zinit=1 skip_self_update=1 skip_size_estimate=1 \
+             ./htotheizzo.sh 2>&1 || true)
+
+    local skipped; skipped=$(echo "$output" | grep -c "Skipped sparkle" || true)
+    local stub_invoked=0; [[ -f "$sentinel" ]] && stub_invoked=1
+
+    rm -rf "$fixture_dir"
+
+    if [[ $skipped -ge 1 && $stub_invoked -eq 0 ]]; then
+        log_pass "skip_sparkle bypasses section and never invokes updater"
+    else
+        log_fail "skip_sparkle failed (skipped:$skipped stub_invoked:$stub_invoked)"
+    fi
+}
+
+test_sparkle_missing_antares() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Missing antares updater skips cleanly without warning"
+
+    local empty_dir; empty_dir=$(mktemp -d)
+    local output
+    output=$(ANTARES_DIR="$empty_dir" \
+             MOCK_MODE=1 skip_file_logging=1 \
+             skip_softwareupdate=1 skip_xcode_select=1 skip_disk_maintenance=1 \
+             skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 \
+             skip_battery_check=1 skip_brew=1 skip_mas=1 \
+             skip_npm=1 skip_yarn=1 skip_pnpm=1 skip_bun=1 skip_deno=1 \
+             skip_nvm=1 skip_nodenv=1 skip_pip=1 skip_pip3=1 skip_pipenv=1 \
+             skip_poetry=1 skip_pdm=1 skip_uv=1 skip_pyenv=1 skip_conda=1 \
+             skip_mamba=1 skip_pixi=1 skip_gem=1 skip_rvm=1 skip_rbenv=1 \
+             skip_rustup=1 skip_cargo=1 skip_go=1 skip_goenv=1 skip_composer=1 \
+             skip_sdk=1 skip_jenv=1 skip_docker=1 skip_podman=1 skip_helm=1 \
+             skip_flutter=1 skip_asdf=1 skip_mise=1 skip_proto=1 skip_pkgx=1 \
+             skip_tfenv=1 skip_gh=1 skip_gcloud=1 skip_az=1 \
+             skip_pod=1 skip_kav=1 skip_apm=1 skip_fisher=1 \
+             skip_antibody=1 skip_zinit=1 skip_self_update=1 skip_size_estimate=1 \
+             ./htotheizzo.sh 2>&1 || true)
+
+    rm -rf "$empty_dir"
+
+    local has_progress; has_progress=$(echo "$output" | grep -c "Updating Sparkle apps" || true)
+    local has_skip; has_skip=$(echo "$output" | grep -c "Antares updater not found" || true)
+    local has_warning; has_warning=$(echo "$output" | grep -c "Warning:.*[Ss]parkle" || true)
+
+    if [[ $has_progress -ge 1 && $has_skip -ge 1 && $has_warning -eq 0 ]]; then
+        log_pass "Missing antares skips cleanly with no warning"
+    else
+        log_fail "Missing antares handling failed (progress:$has_progress skip:$has_skip warning:$has_warning)"
+    fi
+}
+
+test_sparkle_mock_mode() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "MOCK_MODE never invokes the Sparkle updater"
+
+    local fixture_dir; fixture_dir=$(mktemp -d)
+    make_sparkle_fixture "$fixture_dir" "MockApp" "https://example.com/appcast.xml"
+    local sentinel="$fixture_dir/stub_args"
+
+    local output
+    output=$(ANTARES_DIR="$fixture_dir/antares" \
+             SPARKLE_APP_DIRS="$fixture_dir/Applications" \
+             STUB_SENTINEL="$sentinel" \
+             MOCK_MODE=1 skip_file_logging=1 \
+             skip_softwareupdate=1 skip_xcode_select=1 skip_disk_maintenance=1 \
+             skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 \
+             skip_battery_check=1 skip_brew=1 skip_mas=1 \
+             skip_npm=1 skip_yarn=1 skip_pnpm=1 skip_bun=1 skip_deno=1 \
+             skip_nvm=1 skip_nodenv=1 skip_pip=1 skip_pip3=1 skip_pipenv=1 \
+             skip_poetry=1 skip_pdm=1 skip_uv=1 skip_pyenv=1 skip_conda=1 \
+             skip_mamba=1 skip_pixi=1 skip_gem=1 skip_rvm=1 skip_rbenv=1 \
+             skip_rustup=1 skip_cargo=1 skip_go=1 skip_goenv=1 skip_composer=1 \
+             skip_sdk=1 skip_jenv=1 skip_docker=1 skip_podman=1 skip_helm=1 \
+             skip_flutter=1 skip_asdf=1 skip_mise=1 skip_proto=1 skip_pkgx=1 \
+             skip_tfenv=1 skip_gh=1 skip_gcloud=1 skip_az=1 \
+             skip_pod=1 skip_kav=1 skip_apm=1 skip_fisher=1 \
+             skip_antibody=1 skip_zinit=1 skip_self_update=1 skip_size_estimate=1 \
+             ./htotheizzo.sh 2>&1 || true)
+
+    local has_mock; has_mock=$(echo "$output" | grep -c "\[MOCK\] Would update Sparkle app" || true)
+    local stub_invoked=0; [[ -f "$sentinel" ]] && stub_invoked=1
+
+    rm -rf "$fixture_dir"
+
+    if [[ $has_mock -ge 1 && $stub_invoked -eq 0 ]]; then
+        log_pass "MOCK_MODE logs intent and never invokes stub"
+    else
+        log_fail "MOCK_MODE failed (mock_log:$has_mock stub_invoked:$stub_invoked)"
+    fi
+}
+
+test_sparkle_delegation() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Only valid-feed apps delegated; absolute path passed to updater"
+
+    local fixture_dir; fixture_dir=$(mktemp -d)
+    make_sparkle_fixture "$fixture_dir" "GoodApp" "https://example.com/appcast.xml"
+    # Add a second app with non-http feed -- should be silently skipped
+    mkdir -p "$fixture_dir/Applications/BadApp.app/Contents"
+    defaults write "$fixture_dir/Applications/BadApp.app/Contents/Info" SUFeedURL "file:///local/feed.xml"
+    local sentinel="$fixture_dir/stub_args"
+
+    local output
+    output=$(ANTARES_DIR="$fixture_dir/antares" \
+             SPARKLE_APP_DIRS="$fixture_dir/Applications" \
+             STUB_SENTINEL="$sentinel" \
+             SKIP_SUDO=1 \
+             skip_file_logging=1 \
+             skip_softwareupdate=1 skip_xcode_select=1 skip_disk_maintenance=1 \
+             skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 \
+             skip_battery_check=1 skip_brew=1 skip_mas=1 \
+             skip_npm=1 skip_yarn=1 skip_pnpm=1 skip_bun=1 skip_deno=1 \
+             skip_nvm=1 skip_nodenv=1 skip_pip=1 skip_pip3=1 skip_pipenv=1 \
+             skip_poetry=1 skip_pdm=1 skip_uv=1 skip_pyenv=1 skip_conda=1 \
+             skip_mamba=1 skip_pixi=1 skip_gem=1 skip_rvm=1 skip_rbenv=1 \
+             skip_rustup=1 skip_cargo=1 skip_go=1 skip_goenv=1 skip_composer=1 \
+             skip_sdk=1 skip_jenv=1 skip_docker=1 skip_podman=1 skip_helm=1 \
+             skip_flutter=1 skip_asdf=1 skip_mise=1 skip_proto=1 skip_pkgx=1 \
+             skip_tfenv=1 skip_gh=1 skip_gcloud=1 skip_az=1 \
+             skip_pod=1 skip_kav=1 skip_apm=1 skip_fisher=1 \
+             skip_antibody=1 skip_zinit=1 skip_self_update=1 skip_size_estimate=1 \
+             ./htotheizzo.sh 2>&1 || true)
+
+    local invocation_count=0
+    [[ -f "$sentinel" ]] && invocation_count=$(wc -l < "$sentinel" | tr -d ' ')
+
+    local good_app_path="$fixture_dir/Applications/GoodApp.app"
+    local good_invoked=0
+    [[ -f "$sentinel" ]] && grep -qF "$good_app_path" "$sentinel" && good_invoked=1
+
+    local bad_invoked=0
+    [[ -f "$sentinel" ]] && grep -q "BadApp" "$sentinel" && bad_invoked=1
+
+    rm -rf "$fixture_dir"
+
+    if [[ $invocation_count -eq 1 && $good_invoked -eq 1 && $bad_invoked -eq 0 ]]; then
+        log_pass "Stub invoked once with absolute GoodApp path; BadApp skipped"
+    else
+        log_fail "Delegation failed (invocations:$invocation_count good:$good_invoked bad:$bad_invoked)"
+    fi
+}
+
+test_sparkle_no_apps_found() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Empty app dir produces 'No Sparkle apps found' log"
+
+    local fixture_dir; fixture_dir=$(mktemp -d)
+    # Create antares stub so we pass the updater-exists check
+    mkdir -p "$fixture_dir/antares/bin"
+    printf '#!/usr/bin/env bash\n' > "$fixture_dir/antares/bin/update-app.sh"
+    chmod +x "$fixture_dir/antares/bin/update-app.sh"
+    # Empty apps dir
+    local apps_dir="$fixture_dir/Applications"
+    mkdir -p "$apps_dir"
+
+    local output
+    output=$(ANTARES_DIR="$fixture_dir/antares" \
+             SPARKLE_APP_DIRS="$apps_dir" \
+             SKIP_SUDO=1 \
+             skip_file_logging=1 \
+             skip_softwareupdate=1 skip_xcode_select=1 skip_disk_maintenance=1 \
+             skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 \
+             skip_battery_check=1 skip_brew=1 skip_mas=1 \
+             skip_npm=1 skip_yarn=1 skip_pnpm=1 skip_bun=1 skip_deno=1 \
+             skip_nvm=1 skip_nodenv=1 skip_pip=1 skip_pip3=1 skip_pipenv=1 \
+             skip_poetry=1 skip_pdm=1 skip_uv=1 skip_pyenv=1 skip_conda=1 \
+             skip_mamba=1 skip_pixi=1 skip_gem=1 skip_rvm=1 skip_rbenv=1 \
+             skip_rustup=1 skip_cargo=1 skip_go=1 skip_goenv=1 skip_composer=1 \
+             skip_sdk=1 skip_jenv=1 skip_docker=1 skip_podman=1 skip_helm=1 \
+             skip_flutter=1 skip_asdf=1 skip_mise=1 skip_proto=1 skip_pkgx=1 \
+             skip_tfenv=1 skip_gh=1 skip_gcloud=1 skip_az=1 \
+             skip_pod=1 skip_kav=1 skip_apm=1 skip_fisher=1 \
+             skip_antibody=1 skip_zinit=1 skip_self_update=1 skip_size_estimate=1 \
+             ./htotheizzo.sh 2>&1 || true)
+
+    rm -rf "$fixture_dir"
+
+    local has_no_apps; has_no_apps=$(echo "$output" | grep -c "No Sparkle apps found" || true)
+
+    if [[ $has_no_apps -ge 1 ]]; then
+        log_pass "No Sparkle apps found log produced for empty dir"
+    else
+        log_fail "Expected 'No Sparkle apps found' not found in output"
+    fi
+}
+
+test_sparkle_failure_tolerance() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Per-app failure logged as warning and run continues"
+
+    local fixture_dir; fixture_dir=$(mktemp -d)
+    make_sparkle_fixture "$fixture_dir" "FailApp" "https://example.com/appcast.xml"
+    local sentinel="$fixture_dir/stub_args"
+
+    local output exit_code
+    output=$(ANTARES_DIR="$fixture_dir/antares" \
+             SPARKLE_APP_DIRS="$fixture_dir/Applications" \
+             STUB_SENTINEL="$sentinel" \
+             STUB_EXIT_CODE=1 \
+             SKIP_SUDO=1 \
+             skip_file_logging=1 \
+             skip_softwareupdate=1 skip_xcode_select=1 skip_disk_maintenance=1 \
+             skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 \
+             skip_battery_check=1 skip_brew=1 skip_mas=1 \
+             skip_npm=1 skip_yarn=1 skip_pnpm=1 skip_bun=1 skip_deno=1 \
+             skip_nvm=1 skip_nodenv=1 skip_pip=1 skip_pip3=1 skip_pipenv=1 \
+             skip_poetry=1 skip_pdm=1 skip_uv=1 skip_pyenv=1 skip_conda=1 \
+             skip_mamba=1 skip_pixi=1 skip_gem=1 skip_rvm=1 skip_rbenv=1 \
+             skip_rustup=1 skip_cargo=1 skip_go=1 skip_goenv=1 skip_composer=1 \
+             skip_sdk=1 skip_jenv=1 skip_docker=1 skip_podman=1 skip_helm=1 \
+             skip_flutter=1 skip_asdf=1 skip_mise=1 skip_proto=1 skip_pkgx=1 \
+             skip_tfenv=1 skip_gh=1 skip_gcloud=1 skip_az=1 \
+             skip_pod=1 skip_kav=1 skip_apm=1 skip_fisher=1 \
+             skip_antibody=1 skip_zinit=1 skip_self_update=1 skip_size_estimate=1 \
+             ./htotheizzo.sh 2>&1 || true)
+    exit_code=$?
+
+    rm -rf "$fixture_dir"
+
+    local has_warning; has_warning=$(echo "$output" | grep -c "Warning: Sparkle update failed" || true)
+    local has_summary; has_summary=$(echo "$output" | grep -ci "updates completed with.*warning" || true)
+
+    if [[ $has_warning -ge 1 && $exit_code -eq 0 && $has_summary -ge 1 ]]; then
+        log_pass "Failure logged as warning, run exits 0, summary shows warning count"
+    else
+        log_fail "Failure tolerance failed (warning:$has_warning exit:$exit_code summary:$has_summary)"
+    fi
+}
+
+test_sparkle_regression() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Existing fast-path tests unaffected by Sparkle addition"
+
+    local test_log="$TEST_DIR/regression_output.log"
+    if run_htotheizzo_fast > "$test_log" 2>&1; then
+        log_pass "Fast-path (with skip_sparkle=1) completes successfully"
+    else
+        log_fail "Fast-path regression: htotheizzo.sh exited non-zero"
+    fi
+}
+
+# ============================================================================
 # SUMMARY
 # ============================================================================
 
@@ -455,6 +779,15 @@ main() {
 
     log_section "Integration"
     test_full_integration
+
+    log_section "Sparkle App Updates"
+    test_sparkle_skip_flag
+    test_sparkle_missing_antares
+    test_sparkle_mock_mode
+    test_sparkle_delegation
+    test_sparkle_no_apps_found
+    test_sparkle_failure_tolerance
+    test_sparkle_regression
 
     cleanup
 

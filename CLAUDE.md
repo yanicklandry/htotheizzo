@@ -35,6 +35,13 @@ The codebase consists of shell scripts and a modern GUI:
 - `command_exists()` - Checks if commands exist and handles skipping via environment variables
 - `update_itself()` - Self-updating mechanism using git
 
+## Only Mode
+
+Set `only_<name>=1` to run **only** the specified section(s) and silently skip everything else:
+- `only_sparkle=1` - Run only Sparkle app updates (skip all other tools)
+- `only_brew=1 only_npm=1` - Run only Homebrew and npm updates
+- Any `only_*` variable activates only-mode; multiple `only_*` vars can be combined
+
 ## Skip Commands
 
 The script supports skipping specific package managers using environment variables:
@@ -77,6 +84,11 @@ The script supports skipping specific package managers using environment variabl
 - `skip_jenv=1` - Skip jenv updates
 - `skip_goenv=1` - Skip goenv updates
 - `skip_nodenv=1` - Skip nodenv updates
+- `skip_sparkle=1` - Skip Sparkle app updates
+- `skip_sparkle_running=1` - Skip Sparkle apps that are currently running (instead of quitting and relaunching them)
+- `ANTARES_DIR` - Path to antares repo root (default: `$HOME/Developer/2026/antares`); used to locate `bin/update-app.sh`
+- `SPARKLE_APP_DIRS` - Colon-separated list of directories to scan for Sparkle apps (default: `/Applications`)
+- Apps managed by Homebrew Cask (under `/opt/homebrew/Caskroom` or `/usr/local/Caskroom`) are automatically skipped since brew already updates them via `brew upgrade --cask --greedy`
 
 ## Platform-Specific Behavior
 

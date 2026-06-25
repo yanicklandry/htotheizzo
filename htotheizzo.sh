@@ -71,9 +71,13 @@ maybe_run() {
     fi
 }
 
-# Emit a structured progress event for the GUI
+# Emit a structured progress event for the GUI; fall back to a log line in terminal
 progress() {
-  echo "PROGRESS:$1"
+  if [ -t 1 ]; then
+    log "==> $1"
+  else
+    echo "PROGRESS:$1"
+  fi
 }
 
 # Keep sudo credentials alive in background for the duration of the script
@@ -118,9 +122,10 @@ help() {
   echo "  --install-cron      Install htotheizzo as a cron job"
   echo "  --create-snapshot   Create system snapshot before updates"
   echo ""
-  echo "Environment Variables (set to 1 to skip):"
-  echo "  skip_<command>      Skip specific package manager or feature"
-  echo "  Examples: skip_brew=1, skip_npm=1, skip_disk_check=1"
+  echo "Environment Variables:"
+  echo "  skip_<name>=1       Skip a specific package manager or feature"
+  echo "  only_<name>=1       Run only the specified section(s); skip everything else"
+  echo "  Examples: skip_brew=1  only_sparkle=1  only_brew=1 only_npm=1"
   echo ""
   echo "Features:"
   echo "  - Updates 60+ package managers and tools"
@@ -133,6 +138,22 @@ help() {
   echo "For more info: https://github.com/yanicklandry/htotheizzo"
 }
 
+# Returns true if any only_* variable is set to a non-empty value
+_only_mode_active() {
+  env | grep -qE '^only_[a-z_]+=.+'
+}
+
+# Returns 0 (run) or 1 (skip) for a named section/tool, respecting skip_ and only_ vars.
+# In only_ mode, only sections with only_<name>=1 are run; others are silently skipped.
+should_run() {
+  local name="${1//-/_}"
+  local skip_var="skip_${name}"
+  local only_var="only_${name}"
+  [[ -n "${!skip_var:-}" ]] && return 1
+  _only_mode_active && [[ -z "${!only_var:-}" ]] && return 1
+  return 0
+}
+
 command_exists() {
   local cmd="$1"
   # Normalize variable name by replacing hyphens with underscores
@@ -143,6 +164,12 @@ command_exists() {
   if [[ -n "${skip_var}" ]]; then
     log "Skipped $cmd"
     return 1
+  fi
+
+  # In only_ mode, silently skip any tool not listed in only_<cmd>=1
+  if _only_mode_active; then
+    local only_var="only_${normalized_cmd}"
+    [[ -z "${!only_var:-}" ]] && return 1
   fi
 
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -162,10 +189,13 @@ check_disk_space() {
 
   log "Checking disk space..."
 
-  # Get disk usage percentage for root volume
+  # Get disk usage percentage for the primary data volume
   local disk_used
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    disk_used=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+    # On macOS APFS, / is a small read-only system volume; real data lives on /System/Volumes/Data
+    local data_vol="/System/Volumes/Data"
+    [[ -d "$data_vol" ]] || data_vol="/"
+    disk_used=$(df -h "$data_vol" | awk 'NR==2 {print $5}' | sed 's/%//')
   else
     disk_used=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
   fi
@@ -646,7 +676,11 @@ update_linux() {
   update_appimage
   update_bun
   clean_logs
-  clean_browser_caches
+  if should_run browser_caches; then
+    clean_browser_caches
+  else
+    log "Skipped browser_caches"
+  fi
 
   if command_exists brew; then
     log "Updating Homebrew..."
@@ -794,9 +828,39 @@ update_homebrew() {
   if [[ -n "${VERBOSE_MODE:-}" ]]; then
     brew upgrade || log "Warning: brew upgrade failed"
   else
-    brew upgrade 2>&1 | grep -E "^(==>|Error:|Warning:|✔|✘)" || log "Warning: brew upgrade failed"
+    local _brew_upgrade_log="${TMPDIR:-/tmp}/htotheizzo-brew-upgrade-$(date +%Y%m%d-%H%M%S).log"
+    local _brew_upgrade_out _brew_upgrade_exit=0
+    _brew_upgrade_out=$(brew upgrade 2>&1) || _brew_upgrade_exit=$?
+    printf '%s\n' "$_brew_upgrade_out" | grep -E "^(==>|Error:|Warning:|✔|✘)" || true
+    if [[ $_brew_upgrade_exit -ne 0 ]]; then
+      printf '%s\n' "$_brew_upgrade_out" > "$_brew_upgrade_log"
+      local _failed_pkgs
+      _failed_pkgs=$(printf '%s\n' "$_brew_upgrade_out" | grep -E "^Error:" | sed 's/^Error: //' | head -5 | tr '\n' '; ')
+      if [[ -n "${_failed_pkgs:-}" ]]; then
+        log "Warning: brew upgrade failed for: ${_failed_pkgs%; }"
+      else
+        log "Warning: brew upgrade failed"
+      fi
+      log "Full brew upgrade log: $_brew_upgrade_log"
+    fi
   fi
-  brew cleanup -s || log "Warning: brew cleanup failed"
+  local _cleanup_out _cleanup_exit=0
+  _cleanup_out=$(brew cleanup -s 2>&1) || _cleanup_exit=$?
+  printf '%s\n' "$_cleanup_out"
+  if [[ $_cleanup_exit -ne 0 ]]; then
+    if printf '%s\n' "$_cleanup_out" | grep -q "Permission denied"; then
+      local _bad_path
+      _bad_path=$(printf '%s\n' "$_cleanup_out" | grep -A1 "Fix your permissions on:" | tail -1 | tr -d ' ')
+      log "Warning: brew cleanup failed (permission denied)"
+      if [[ -n "${_bad_path:-}" ]]; then
+        log "Fix: sudo chown -R \$(whoami) $_bad_path"
+      else
+        log "Fix: sudo chown -R \$(whoami) /opt/homebrew"
+      fi
+    else
+      log "Warning: brew cleanup failed"
+    fi
+  fi
   brew autoremove || log "Warning: brew autoremove failed"
 
   # Reconcile installed packages against Brewfile if one exists
@@ -859,6 +923,93 @@ mac_disk_maintenance() {
     fi
     log "Cache cleanup completed"
   fi
+}
+
+update_sparkle_apps() {
+  progress "Updating Sparkle apps"
+  log "Updating Sparkle apps..."
+
+  local updater="${ANTARES_DIR:-$HOME/Developer/2026/antares}/bin/update-app.sh"
+
+  if [[ ! -x "$updater" ]]; then
+    log "Antares updater not found at $updater; skipping Sparkle app updates"
+    return 0
+  fi
+
+  # Pass 1: discover Sparkle apps (filesystem only, no network)
+  local -a _sparkle_apps=()
+  local _nullglob; _nullglob=$(shopt -p nullglob || true); shopt -s nullglob
+
+  local IFS=:
+  for root in ${SPARKLE_APP_DIRS:-/Applications}; do
+    for app in "$root"/*.app; do
+      local feed; feed=$(defaults read "$app/Contents/Info" SUFeedURL 2>/dev/null) || continue
+      [[ "$feed" == http* ]] || continue
+      _sparkle_apps+=("$app")
+    done
+  done
+
+  eval "$_nullglob"
+
+  if [[ ${#_sparkle_apps[@]} -eq 0 ]]; then
+    log "No Sparkle apps found in ${SPARKLE_APP_DIRS:-/Applications}."
+    return 0
+  fi
+
+  # Log discovered apps before any network calls
+  local _names=()
+  for app in "${_sparkle_apps[@]}"; do _names+=("$(basename "$app" .app)"); done
+  log "Found ${#_sparkle_apps[@]} Sparkle app(s): $(IFS=', '; echo "${_names[*]}")"
+
+  # Pass 2: update each app
+  for app in "${_sparkle_apps[@]}"; do
+    local app_name
+    app_name=$(basename "$app" .app)
+
+    # Skip apps managed by Homebrew Cask (already updated by brew upgrade --cask)
+    # Brew cask copies .app into /Applications, so resolve via Caskroom directory lookup
+    local _norm_name
+    _norm_name=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+    if ls /opt/homebrew/Caskroom/ 2>/dev/null | grep -qi "^${_norm_name}" \
+    || ls /usr/local/Caskroom/ 2>/dev/null | grep -qi "^${_norm_name}"; then
+      log "Skipping Sparkle app managed by Homebrew Cask: $app_name"
+      continue
+    fi
+
+    # Running-app skip (opt-in via skip_sparkle_running=1)
+    if [[ -n "${skip_sparkle_running:-}" ]]; then
+      local is_running
+      is_running=$(osascript -e "application \"$app_name\" is running" 2>/dev/null || echo "false")
+      if [[ "$is_running" == "true" ]]; then
+        log "Skipping running Sparkle app: $app_name"
+        continue
+      fi
+    fi
+
+    # Mock mode gate
+    if [[ -n "${MOCK_MODE:-}" ]]; then
+      log "[MOCK] Would update Sparkle app: $app_name"
+      continue
+    fi
+
+    # Delegate to antares updater; report per-app outcome
+    local _spark_out _spark_exit=0
+    _spark_out=$("$updater" "$app" 2>&1) || _spark_exit=$?
+    if [[ $_spark_exit -ne 0 ]]; then
+      local _spark_detail
+      _spark_detail=$(printf '%s\n' "$_spark_out" | grep "✗" | head -1 || true)
+      _spark_detail="${_spark_detail:-$(printf '%s\n' "$_spark_out" | grep -v "^$" | tail -3 | tr '\n' ' ' || true)}"
+      log "Warning: Sparkle update failed for $app_name: ${_spark_detail:-no details}"
+    elif printf '%s\n' "$_spark_out" | grep -q "already up to date"; then
+      local _spark_cur
+      _spark_cur=$(printf '%s\n' "$_spark_out" | grep -oE 'installed [^ ]+' | head -1 | cut -d' ' -f2 || true)
+      log "$app_name: up to date${_spark_cur:+ ($_spark_cur)}"
+    else
+      local _spark_installed
+      _spark_installed=$(printf '%s\n' "$_spark_out" | grep "^✓ installed" | sed 's/^✓ //' || true)
+      log "$app_name: ${_spark_installed:-updated}"
+    fi
+  done
 }
 
 mac_system_maintenance() {
@@ -946,8 +1097,10 @@ update() {
   setup_file_logging
 
   # Request administrator privileges with native dialog (includes Touch ID)
-  # Skip in mock mode
-  if [[ -z "${MOCK_MODE:-}" ]]; then
+  # Skip in mock mode or when SKIP_SUDO=1 (non-interactive test environments)
+  if [[ -n "${MOCK_MODE:-}" || -n "${SKIP_SUDO:-}" ]]; then
+    log "Mock mode: Skipping sudo authentication"
+  else
     echo "Requesting administrator privileges..."
     if ! sudo -v; then
       log "Authentication failed. Exiting."
@@ -956,23 +1109,18 @@ update() {
     fi
     # Keep sudo credentials refreshed for the entire run
     keep_sudo_alive
-  else
-    log "Mock mode: Skipping sudo authentication"
   fi
 
   echo "htotheizzo is running the update functions"
 
-  progress "Running pre-update health checks"
-  # Pre-update health checks
-  check_battery
-  check_disk_space
-  check_network
-
-  # Optional: Estimate update sizes
-  estimate_update_sizes
-
-  # Show security update information
-  show_security_update_info
+  if ! _only_mode_active; then
+    progress "Running pre-update health checks"
+    check_battery
+    check_disk_space
+    check_network
+    estimate_update_sizes
+    show_security_update_info
+  fi
 
   # Optional: Create system snapshot before updates
   if [[ -n "${CREATE_SNAPSHOT:-}" ]]; then
@@ -989,8 +1137,10 @@ update() {
     update_linux
 
   elif [[ "$OSTYPE" == "darwin"* ]]; then
-    log "Hey there Mac user. At least it's not Windows."
-    progress "Updating macOS packages"
+    if ! _only_mode_active; then
+      log "Hey there Mac user. At least it's not Windows."
+      progress "Updating macOS packages"
+    fi
 
     # Install Apple Command Line Tools (necessary after an update)
     if [[ -z "${skip_xcode_select:-}" ]] && command_exists xcode-select; then
@@ -1069,30 +1219,40 @@ update() {
       open "/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app" || log "Warning: failed to open Microsoft AutoUpdate"
     fi
 
+    if should_run sparkle; then
+      update_sparkle_apps
+    else
+      log "Skipped sparkle"
+    fi
+
     # Run macOS maintenance tasks (can be skipped with environment variables)
-    if [[ -z "${skip_disk_maintenance:-}" ]]; then
+    if should_run disk_maintenance; then
       mac_disk_maintenance
     else
       log "Skipped disk_maintenance"
     fi
 
     # Clean browser caches
-    clean_browser_caches
+    if should_run browser_caches; then
+      clean_browser_caches
+    else
+      log "Skipped browser_caches"
+    fi
 
-    if [[ -z "${skip_system_maintenance:-}" ]]; then
+    if should_run system_maintenance; then
       mac_system_maintenance
     else
       log "Skipped system_maintenance"
     fi
 
     # Optional maintenance (can be skipped with environment variables)
-    if [[ -z "${skip_spotlight:-}" ]]; then
+    if should_run spotlight; then
       mac_spotlight_rebuild
     else
       log "Skipped spotlight"
     fi
 
-    if [[ -z "${skip_launchpad:-}" ]]; then
+    if should_run launchpad; then
       mac_reset_launchpad
     else
       log "Skipped launchpad"
@@ -1118,7 +1278,7 @@ update() {
   fi
 
   # Self-update (can be skipped with environment variable)
-  if [[ -z "${skip_self_update:-}" ]]; then
+  if should_run self_update; then
     update_itself
   else
     log "Skipped self_update"
@@ -1127,7 +1287,7 @@ update() {
   update_vscode_ext
   update_gsd
 
-  progress "Updating shell and dev tools"
+  if ! _only_mode_active; then progress "Updating shell and dev tools"; fi
   if command_exists kav; then
     log "Updating Kaspersky Security Tools..."
     kav update || log "Warning: kav update failed"
@@ -1143,7 +1303,7 @@ update() {
     apm update --no-confirm || log "Warning: apm update failed"
   fi
 
-  progress "Updating JavaScript/Node.js tools"
+  if ! _only_mode_active; then progress "Updating JavaScript/Node.js tools"; fi
   if command_exists npm; then
     log "Updating npm..."
     npm install -g npm || log "Warning: npm self-update failed"
@@ -1212,7 +1372,7 @@ update() {
     fnm install --lts || log "Warning: fnm install --lts failed"
   fi
 
-  progress "Updating Python tools"
+  if ! _only_mode_active; then progress "Updating Python tools"; fi
   if command_exists pip; then
     log "Updating pip packages..."
     export PIP_REQUIRE_VIRTUALENV=false
@@ -1274,7 +1434,7 @@ update() {
     pipenv --clear
   fi
 
-  progress "Updating Rust and systems tools"
+  if ! _only_mode_active; then progress "Updating Rust and systems tools"; fi
   # Rust/Cargo updates
   if command_exists rustup; then
     log "Checking Rust toolchain status..."
@@ -1606,7 +1766,7 @@ update() {
     rvm cleanup all || log "Warning: rvm cleanup failed"
   fi
 
-  progress "Updating Ruby gems"
+  if ! _only_mode_active; then progress "Updating Ruby gems"; fi
   if command_exists gem; then
     log "Updating ruby gems..."
 
@@ -1634,7 +1794,9 @@ update() {
   fi
 
   # Post-update checks
-  check_uptime
+  if ! _only_mode_active; then
+    check_uptime
+  fi
 
   log "htotheizzo is complete, you got 99 problems but updates ain't one"
 

@@ -13,7 +13,7 @@ Originally inspired by https://gist.github.com/jfrazelle/57dbf1fccfa02151ff3f, n
 - **50+ Package Managers**: Covers virtually every major package manager and version manager
 - **Cross-Platform**: Works on macOS, Linux (including Ubuntu, Debian, Raspberry Pi), and Windows
 - **Modern GUI**: Electron-based GUI with Touch ID support for macOS
-- **Smart Skip System**: Skip any package manager using environment variables
+- **Flexible Run Control**: `skip_<name>=1` to exclude providers; `only_<name>=1` to run just one
 - **Native Authentication**: Uses system authentication dialogs with Touch ID support
 - **Comprehensive Maintenance**: Includes system cleanup, cache clearing, and optimization
 - **Safe Error Handling**: Graceful failure handling - one failed update won't stop others
@@ -93,9 +93,26 @@ The GUI provides:
 - Touch ID authentication on macOS
 - Organized categories for easy selection
 
+### Run Only Specific Providers
+
+Use `only_<name>=1` to run a single provider (or a small set) and silently skip everything else. Any `only_*` variable activates "only mode":
+
+```bash
+# Update only Sparkle apps
+only_sparkle=1 htotheizzo.sh
+
+# Update only Homebrew and npm
+only_brew=1 only_npm=1 htotheizzo.sh
+
+# Update only Rust toolchain
+only_rustup=1 htotheizzo.sh
+```
+
+This is useful for quick targeted updates, debugging a specific provider, or running isolated tests without waiting for the full 60+ tool sweep.
+
 ### Skip Specific Package Managers
 
-You can skip any package manager using environment variables:
+Use `skip_<name>=1` to exclude a provider while running everything else:
 
 ```bash
 # Skip specific tools
@@ -108,7 +125,7 @@ skip_docker=1 skip_gcloud=1 skip_aws=1 htotheizzo.sh
 skip_pip=1 skip_pip3=1 skip_poetry=1 skip_conda=1 htotheizzo.sh
 ```
 
-All available skip variables: `skip_brew`, `skip_mas`, `skip_snap`, `skip_flatpak`, `skip_bun`, `skip_npm`, `skip_yarn`, `skip_pnpm`, `skip_deno`, `skip_pip`, `skip_pip3`, `skip_pipenv`, `skip_poetry`, `skip_pdm`, `skip_uv`, `skip_conda`, `skip_mamba`, `skip_gem`, `skip_rvm`, `skip_rbenv`, `skip_rustup`, `skip_cargo`, `skip_go`, `skip_composer`, `skip_cpan`, `skip_asdf`, `skip_mise`, `skip_nvm`, `skip_nodenv`, `skip_pyenv`, `skip_goenv`, `skip_jenv`, `skip_sdk`, `skip_tfenv`, `skip_docker`, `skip_helm`, `skip_kubectl`, `skip_gh`, `skip_gcloud`, `skip_aws`, `skip_az`, `skip_code`, `skip_pod`, `skip_flutter`, `skip_omz`, `skip_antibody`, `skip_fisher`, `skip_starship`, `skip_port`, `skip_nix-env`, `skip_kav`, `skip_apm`, `skip_spotlight`, `skip_launchpad`
+All available skip variables: `skip_brew`, `skip_mas`, `skip_snap`, `skip_flatpak`, `skip_bun`, `skip_npm`, `skip_yarn`, `skip_pnpm`, `skip_deno`, `skip_pip`, `skip_pip3`, `skip_pipenv`, `skip_poetry`, `skip_pdm`, `skip_uv`, `skip_conda`, `skip_mamba`, `skip_gem`, `skip_rvm`, `skip_rbenv`, `skip_rustup`, `skip_cargo`, `skip_go`, `skip_composer`, `skip_cpan`, `skip_asdf`, `skip_mise`, `skip_nvm`, `skip_nodenv`, `skip_pyenv`, `skip_goenv`, `skip_jenv`, `skip_sdk`, `skip_tfenv`, `skip_docker`, `skip_helm`, `skip_kubectl`, `skip_gh`, `skip_gcloud`, `skip_aws`, `skip_az`, `skip_code`, `skip_pod`, `skip_flutter`, `skip_omz`, `skip_antibody`, `skip_fisher`, `skip_starship`, `skip_port`, `skip_nix-env`, `skip_kav`, `skip_apm`, `skip_spotlight`, `skip_launchpad`, `skip_sparkle`
 
 ## Automated Scheduling with Cron
 
