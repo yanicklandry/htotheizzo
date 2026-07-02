@@ -6,6 +6,8 @@ set -euo pipefail
 export HOMEBREW_NO_INTERACTIVE=1
 export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
 export DEBIAN_FRONTEND=noninteractive
+export HOMEBREW_CLEANUP_MAX_AGE_DAYS=30   # default is 120
+export HOMEBREW_AUTOREMOVE=1              # drop unused dependencies after upgrade
 
 THISUSER=$(who am i | awk '{print $1}')
 
