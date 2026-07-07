@@ -125,7 +125,45 @@ skip_docker=1 skip_gcloud=1 skip_aws=1 htotheizzo.sh
 skip_pip=1 skip_pip3=1 skip_poetry=1 skip_conda=1 htotheizzo.sh
 ```
 
-All available skip variables: `skip_brew`, `skip_mas`, `skip_snap`, `skip_flatpak`, `skip_bun`, `skip_npm`, `skip_yarn`, `skip_pnpm`, `skip_deno`, `skip_pip`, `skip_pip3`, `skip_pipenv`, `skip_poetry`, `skip_pdm`, `skip_uv`, `skip_conda`, `skip_mamba`, `skip_gem`, `skip_rvm`, `skip_rbenv`, `skip_rustup`, `skip_cargo`, `skip_go`, `skip_composer`, `skip_cpan`, `skip_asdf`, `skip_mise`, `skip_nvm`, `skip_nodenv`, `skip_pyenv`, `skip_goenv`, `skip_jenv`, `skip_sdk`, `skip_tfenv`, `skip_docker`, `skip_helm`, `skip_kubectl`, `skip_gh`, `skip_gcloud`, `skip_aws`, `skip_az`, `skip_code`, `skip_pod`, `skip_flutter`, `skip_omz`, `skip_antibody`, `skip_fisher`, `skip_starship`, `skip_port`, `skip_nix-env`, `skip_kav`, `skip_apm`, `skip_spotlight`, `skip_launchpad`, `skip_sparkle`
+All available skip variables: `skip_time_machine`, `skip_brew`, `skip_mas`, `skip_snap`, `skip_flatpak`, `skip_bun`, `skip_npm`, `skip_yarn`, `skip_pnpm`, `skip_deno`, `skip_pip`, `skip_pip3`, `skip_pipenv`, `skip_poetry`, `skip_pdm`, `skip_uv`, `skip_conda`, `skip_mamba`, `skip_gem`, `skip_rvm`, `skip_rbenv`, `skip_rustup`, `skip_cargo`, `skip_go`, `skip_composer`, `skip_cpan`, `skip_asdf`, `skip_mise`, `skip_nvm`, `skip_nodenv`, `skip_pyenv`, `skip_goenv`, `skip_jenv`, `skip_sdk`, `skip_tfenv`, `skip_docker`, `skip_helm`, `skip_kubectl`, `skip_gh`, `skip_gcloud`, `skip_aws`, `skip_az`, `skip_code`, `skip_pod`, `skip_flutter`, `skip_omz`, `skip_antibody`, `skip_fisher`, `skip_starship`, `skip_port`, `skip_nix-env`, `skip_kav`, `skip_apm`, `skip_spotlight`, `skip_launchpad`, `skip_sparkle`
+
+## Time Machine Toolkit
+
+The `time-machine/` folder contains companion scripts for managing macOS Time Machine backups. These are standalone tools intended for developers who want to keep their backup footprint lean.
+
+### Scripts
+
+| Script | Purpose | Sudo? |
+|---|---|---|
+| `setup.sh` | Set backup destination and register exclusions (caches, build tools, cloud-synced apps) | Yes |
+| `doctor.sh` | Health check: drive mounted, disk space, last backup age, snapshot list, exclusion audit | No |
+| `estimate.sh` | Estimate first-backup size and recommend drive capacity | No |
+| `git-check.sh [dir]` | Find files outside any git repo (the files Time Machine must protect) | No |
+| `backup.sh` | One-shot tar.gz of critical dotfiles (SSH keys, GPG, shell config) | No |
+
+### Quick start
+
+```bash
+# First-time setup (plug in your external drive first)
+sudo bash time-machine/setup.sh
+
+# Verify backup health
+bash time-machine/doctor.sh
+
+# Estimate how big your first backup will be
+bash time-machine/estimate.sh
+
+# Find files in ~/Documents that have no git coverage
+bash time-machine/git-check.sh ~/Documents
+```
+
+`doctor.sh` runs automatically as part of the htotheizzo macOS maintenance pass. Skip it with `skip_time_machine=1`.
+
+### Exclusions applied by `setup.sh`
+
+`setup.sh` excludes reconstructible directories to keep the backup small: npm/Yarn caches, Docker layers, Xcode DerivedData, iOS simulators, Maven/Gradle caches, Rust crate registry, and cloud-synced app data (Chrome, Slack, Discord, Notion, Figma, all email clients).
+
+---
 
 ## Automated Scheduling with Cron
 

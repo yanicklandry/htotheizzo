@@ -1043,6 +1043,25 @@ mac_reset_launchpad() {
   run_with_fallback "killall Dock" "Dock restart" true
 }
 
+run_time_machine_doctor() {
+  if [[ -n "${skip_time_machine:-}" ]]; then
+    log "Skipped time_machine doctor"
+    return 0
+  fi
+
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local doctor="$script_dir/time-machine/doctor.sh"
+
+  if [[ ! -f "$doctor" ]]; then
+    log "Time Machine doctor not found at $doctor, skipping."
+    return 0
+  fi
+
+  log "Running Time Machine health check..."
+  bash "$doctor" 2>&1 | while IFS= read -r line; do log "$line"; done || true
+}
+
 update_itself() {
   log "Updating htotheizzo itself..."
   local ourpwd="$PWD"
@@ -1258,6 +1277,12 @@ update() {
       mac_reset_launchpad
     else
       log "Skipped launchpad"
+    fi
+
+    if should_run time_machine; then
+      run_time_machine_doctor
+    else
+      log "Skipped time_machine"
     fi
 
   elif [[ -n "$is_raspberry" ]]; then

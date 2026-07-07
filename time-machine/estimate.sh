@@ -105,7 +105,6 @@ APPSUP_SKIP=(
     "hey"
 )
 
-APPSUP_EXCL=0
 for app in "${APPSUP_SKIP[@]}"; do
     path="$APP_SUPPORT/$app"
     sz=$(dir_size "$path")
@@ -130,8 +129,6 @@ APPSUP_KEEP=$(( APPSUP_TOTAL - APPSUP_EXCL ))
 # Show the apps that have meaningful local-only data
 APPSUP_WORTH=(
     "Signal"            # local message history — no cloud backup
-    "protonmail"        # local mail cache
-    "Proton Mail"
     "Code"              # VS Code: extensions + local settings
     "com.apple.wallpaper"
 )

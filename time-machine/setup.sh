@@ -50,7 +50,6 @@ EXCLUDES=(
     "$HOME/Library/Application Support/Framer"
     "$HOME/Library/Application Support/Caches"
     # Email: all stored on cloud servers (Gmail, Proton, iCloud, Outlook...)
-    "$HOME/Library/Mail"
     "$HOME/Library/Application Support/protonmail"
     "$HOME/Library/Application Support/Proton Mail"
     "$HOME/Library/Application Support/Proton Meet"
