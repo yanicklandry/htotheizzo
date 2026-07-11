@@ -494,7 +494,7 @@ clean_browser_caches() {
       if command -v gtimeout >/dev/null 2>&1; then
         gtimeout 300 find "$safari_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "Cache.db"* \) -exec rm -f {} + 2>/dev/null || log "Warning: Safari cache cleanup timed out or failed"
       else
-        find "$safari_cache" \( -name "*.tmp" -o -name "*.cache" \) -type f -delete 2>/dev/null || log "Warning: Safari cache cleanup failed"
+        find "$safari_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "Cache.db*" \) -exec rm -f {} + 2>/dev/null || true  # some files may be locked by Safari
       fi
 
       cleaned_browsers+=("Safari")
@@ -921,7 +921,7 @@ mac_disk_maintenance() {
         log "Warning: cache cleanup taking too long, killing process"
         kill $find_pid 2>/dev/null || true
       fi
-      wait $find_pid 2>/dev/null || log "Warning: cache cleanup completed with warnings"
+      wait $find_pid 2>/dev/null || true  # non-zero exit is expected when some locked files can't be deleted
     fi
     log "Cache cleanup completed"
   fi
