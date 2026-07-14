@@ -1,0 +1,10 @@
+{
+  "id": "steering-update",
+  "event": "change",
+  "glob": "src/**/*.{ts,js,py,go,rs}",
+  "action": "Assess whether significant source changes warrant updates to .kiro/steering documents.",
+  "enabled": true,
+  "maxTokens": 100000,
+  "debounceMs": 300,
+  "source": "built-in"
+}

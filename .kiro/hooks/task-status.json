@@ -1,0 +1,10 @@
+{
+  "id": "task-status",
+  "event": "change",
+  "glob": "src/**/*.{ts,js,py,go,rs}",
+  "action": "Check whether implementation changes make any tasks.md statuses outdated and note discrepancies.",
+  "enabled": true,
+  "maxTokens": 100000,
+  "debounceMs": 300,
+  "source": "built-in"
+}

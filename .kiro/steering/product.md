@@ -5,7 +5,7 @@ htotheizzo is a single-command system updater for developers. It runs all your p
 ## Core Capabilities
 
 - **Universal update pass**: One command updates all installed package managers, version managers, cloud CLIs, and development tools across macOS, Linux, and Windows.
-- **Selective skip system**: Any category can be skipped via `skip_<name>=1` environment variables — no config files, no flags, just env vars.
+- **Selective execution system**: Two complementary env var modes: `skip_<name>=1` to exclude categories, `only_<name>=1` to run only specific categories. No config files or flags.
 - **Safe failure handling**: A failed updater logs a warning and continues; the summary at the end shows what went wrong without stopping the run.
 - **Electron GUI**: A native macOS GUI with Touch ID auth, per-category checkboxes, and real-time progress output.
 - **Self-update**: The script finds its own git clone via symlink resolution and pulls on each run.

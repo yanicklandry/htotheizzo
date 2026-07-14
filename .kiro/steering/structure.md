@@ -9,7 +9,7 @@ Flat and script-centric. The shell script is the primary artifact; everything el
 ### Root — scripts and docs
 **Location**: `/`  
 **Purpose**: Executable scripts and human-readable docs  
-**Examples**: `htotheizzo.sh` (main), `htotheizzo-gui.sh` (GUI launcher), `update.sh` (Windows), `repair.sh` (macOS disk repair), `test.sh` (integration tests), `FUTURE.md` (backlog)
+**Examples**: `htotheizzo.sh` (main), `htotheizzo-gui.sh` (GUI launcher), `update.sh` (Windows), `repair.sh` (macOS disk repair), `test.sh` (integration tests), `PLAN.md` (unified bugs + enhancement backlog + GUI platform notes)
 
 ### GUI application
 **Location**: `gui/`  
@@ -19,6 +19,10 @@ Flat and script-centric. The shell script is the primary artifact; everything el
 ### macOS app bundle
 **Location**: `htotheizzo.app/`  
 **Purpose**: Finder/Dock launchable `.app` wrapper. Must stay inside the repo; launcher resolves paths relative to the bundle location.
+
+### Time Machine toolkit
+**Location**: `time-machine/`  
+**Purpose**: Companion scripts for macOS Time Machine backup hygiene: `setup.sh`, `doctor.sh`, `estimate.sh`, `git-check.sh`, `RECOMMENDATIONS.md`. Integrated into the macOS maintenance pass of `htotheizzo.sh`.
 
 ### Documentation
 **Location**: `docs/`  

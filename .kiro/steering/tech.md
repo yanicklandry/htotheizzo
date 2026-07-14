@@ -20,6 +20,8 @@ Two independent layers that share no runtime coupling:
 - **`maybe_run()`**: Wraps commands for `MOCK_MODE` support. Use for commands that should be skippable in testing.
 - **`command_exists()`**: Always gate on this before invoking a tool. Absence of a tool is silent skip, not an error.
 - **`MAS_NO_AUTO_INDEX=1`**: Set before `mas upgrade` to suppress the auto-index warning.
+- **`only_<name>=1` mode**: Complement to `skip_<name>=1`. When any `only_*` var is set, `command_exists` silently skips everything not listed. Implemented via `_only_mode_active()` + `only_${name}` var check. Use for targeted runs (e.g. `only_brew=1 only_npm=1`).
+- **`SKIP_SUDO=1`**: Disables the `keep_sudo_alive()` loop for non-interactive/test environments. Set alongside `MOCK_MODE=1` when running `test.sh`.
 
 ## Development Standards
 

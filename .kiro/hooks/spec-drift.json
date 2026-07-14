@@ -1,0 +1,10 @@
+{
+  "id": "spec-drift",
+  "event": "change",
+  "glob": "src/**/*.{ts,js,py,go,rs}",
+  "action": "Review recent source changes and flag spec artifacts in .kiro/specs that are now stale.",
+  "enabled": true,
+  "maxTokens": 100000,
+  "debounceMs": 300,
+  "source": "built-in"
+}
