@@ -6,7 +6,8 @@
     "init",
     "requirements",
     "design",
-    "validate-design"
+    "validate-design",
+    "tasks"
   ],
   "done": false,
   "completedQueueSpecs": [
