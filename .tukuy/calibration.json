@@ -30,5 +30,13 @@
     "actualDurationMs": 33130,
     "idleDurationMs": 0,
     "estimatedTokens": 70000
+  },
+  {
+    "phase": "design",
+    "timestamp": "2026-07-14T13:27:24.456Z",
+    "estimatedDurationMs": 600000,
+    "actualDurationMs": 118943,
+    "idleDurationMs": 0,
+    "estimatedTokens": 150000
   }
 ]
