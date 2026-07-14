@@ -4,7 +4,8 @@
     "steering",
     "discovery",
     "init",
-    "requirements"
+    "requirements",
+    "design"
   ],
   "done": false,
   "completedQueueSpecs": []
