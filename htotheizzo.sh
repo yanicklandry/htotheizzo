@@ -1369,16 +1369,14 @@ update() {
       log "Yarn installed via corepack, enabling latest version"
       corepack enable || log "Warning: corepack enable failed"
       corepack prepare yarn@stable --activate || log "Warning: corepack yarn update failed"
-      progress "Cleaning yarn cache"
-      yarn cache clean || log "Warning: yarn cache clean failed"
     elif command_exists npm; then
       log "Attempting yarn update via npm..."
       npm install -g yarn --force || log "Warning: yarn update via npm failed"
-      progress "Cleaning yarn cache"
-      yarn cache clean || log "Warning: yarn cache clean failed"
     else
       log "Warning: Skipping yarn update - no safe update method available"
     fi
+    progress "Cleaning yarn cache"
+    yarn cache clean || log "Warning: yarn cache clean failed"
   fi
 
   if command_exists nvm; then
@@ -1523,6 +1521,8 @@ update() {
         log "Cleaning up Docker containers..."
       fi
       docker system prune -af --volumes || log "Warning: docker system prune failed"
+      progress "Pruning Docker builder cache"
+      docker builder prune -f || log "Warning: docker builder prune failed"
     fi
   elif command_exists podman; then
     # Podman without docker alias - check if running
