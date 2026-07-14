@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Remove backup_reminder function and call site
+- [x] 1. Remove backup_reminder function and call site
 - [x] 1.1 (P) Delete backup_reminder function body (lines 236–281) from htotheizzo.sh
   - Remove the entire `backup_reminder()` block including all `tmutil` invocations and the `skip_backup_warning` guard.
   - Confirm no reference to `backup_reminder` or `skip_backup_warning` remains in the file after deletion.
@@ -14,7 +14,7 @@
   - _Boundary: htotheizzo.sh pre-check section_
   - _Depends: 1.1_
 
-- [ ] 2. Remove check_system_load function and call site
+- [x] 2. Remove check_system_load function and call site
 - [x] 2.1 (P) Delete check_system_load function body (lines 572–610) from htotheizzo.sh
   - Remove the entire `check_system_load()` block including the CPU temperature sysctl sub-block.
   - Confirm no reference to `check_system_load` or `skip_load_check` remains in the file.
