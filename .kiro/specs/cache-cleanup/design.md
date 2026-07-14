@@ -64,7 +64,7 @@ This spec adds five cache-purge commands to `htotheizzo.sh`, each placed immedia
 3. Runs update commands with `|| log "Warning: ..."` fallback
 4. Respects `skip_<name>=1` environment variable (checked inline with `command_exists`)
 
-The `command_exists` function already handles skip-flag checking. Checking `skip_pip=1` before running is already handled by the outer `command_exists pip` guard — htotheizzo's existing convention is that the skip flag prevents `command_exists` from returning true for that tool. Review of the actual implementation shows `command_exists` does NOT check skip flags — the existing blocks use a separate inline check pattern. New additions must match whichever guard style the surrounding block uses.
+The `command_exists` function already handles skip-flag checking. It normalizes the tool name (hyphens → underscores), reads `skip_<tool>` from the environment, and returns non-zero (skip) when that variable is set — before it ever probes `command -v`. It also enforces `only_<tool>` mode. This means a cache-purge line placed **inside** the existing `if command_exists <tool>; then` guard is automatically gated by the tool's skip flag and its install check: no separate inline skip check is needed. New additions must therefore sit inside the surrounding `command_exists` block (or, for docker, inside the existing `docker info` daemon-running guard) rather than re-deriving guard logic.
 
 ### Architecture Pattern & Boundary Map
 
