@@ -1,7 +1,7 @@
 # Implementation Plan
 
 - [x] 1. Add pip and pip3 cache purge
-- [x] 1.1 Add `pip cache purge` after the pip update block (P)
+- [x] 1.1 Add `pip cache purge` after the pip update block
   - Locate the `if command_exists pip; then` block — find it by searching for the `export PIP_REQUIRE_VIRTUALENV=true` line that closes the pip update block
   - Insert immediately before the closing `fi`, after `export PIP_REQUIRE_VIRTUALENV=true`:
     ```bash
