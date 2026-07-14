@@ -1,0 +1,71 @@
+[
+  {
+    "runAt": "2026-07-14T13:48:29.254Z",
+    "phases": [
+      {
+        "phase": "steering",
+        "startMs": 1784035244940,
+        "endMs": 1784035323998,
+        "durationMs": 79058,
+        "skipped": false
+      },
+      {
+        "phase": "discovery",
+        "startMs": 1784035333476,
+        "endMs": 1784035424011,
+        "durationMs": 90535,
+        "skipped": false
+      },
+      {
+        "phase": "init",
+        "startMs": 1784035424040,
+        "endMs": 1784035455814,
+        "durationMs": 31774,
+        "skipped": false
+      },
+      {
+        "phase": "requirements",
+        "startMs": 1784035478125,
+        "endMs": 1784035511255,
+        "durationMs": 33130,
+        "skipped": false
+      },
+      {
+        "phase": "design",
+        "startMs": 1784035525512,
+        "endMs": 1784035644455,
+        "durationMs": 118943,
+        "skipped": false
+      },
+      {
+        "phase": "validate-design",
+        "startMs": 1784035664987,
+        "endMs": 1784035795860,
+        "durationMs": 130873,
+        "skipped": false
+      },
+      {
+        "phase": "tasks",
+        "startMs": 0,
+        "endMs": 0,
+        "durationMs": 0,
+        "skipped": true
+      },
+      {
+        "phase": "impl",
+        "startMs": 1784036356929,
+        "endMs": 1784036524143,
+        "durationMs": 167214,
+        "skipped": false
+      },
+      {
+        "phase": "validate-impl",
+        "startMs": 1784036524186,
+        "endMs": 1784036909204,
+        "durationMs": 385018,
+        "skipped": false
+      }
+    ],
+    "totalDurationMs": 1036545
+  }
+]

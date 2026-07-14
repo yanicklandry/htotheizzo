@@ -25,3 +25,5 @@ Improve htotheizzo's maintenance pass by removing noise features that aren't est
 ## Specs (dependency order)
 - [x] script-cleanup -- Remove load check, backup reminder, dead code; fix softwareupdate duplicate, cache timeouts, redundant sudo -v calls. Dependencies: none
 - [x] cache-cleanup -- Add pip, uv, docker builder, yarn, cargo cache purge commands following existing patterns. Dependencies: script-cleanup
+- [x] sudo-auth -- Fix Touch ID over-prompting (keepalive interval 50s→240s), add major OS upgrade warning before `softwareupdate --install --all`. Dependencies: none
+- [x] sparkle-app-updates -- Add macOS-only `update_sparkle_apps()` section delegating to antares `bin/update-app.sh` for Sparkle-framework apps not covered by Homebrew casks. Dependencies: none

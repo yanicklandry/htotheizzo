@@ -1,10 +1,10 @@
 {
   "backlog": [],
-  "ready": [
+  "ready": [],
+  "in-progress": [
     "cache-cleanup"
   ],
-  "in-progress": [
+  "done": [
     "script-cleanup"
-  ],
-  "done": []
+  ]
 }

@@ -1,15 +1,8 @@
 {
-  "specName": "script-cleanup",
-  "completedPhases": [
-    "steering",
-    "discovery",
-    "init",
-    "requirements",
-    "design",
-    "validate-design",
-    "tasks",
-    "impl"
-  ],
+  "specName": "cache-cleanup",
+  "completedPhases": [],
   "done": false,
-  "completedQueueSpecs": []
+  "completedQueueSpecs": [
+    "script-cleanup"
+  ]
 }
