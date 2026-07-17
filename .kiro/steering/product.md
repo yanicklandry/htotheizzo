@@ -9,7 +9,7 @@ htotheizzo is a single-command system updater for developers. It runs all your p
 - **Safe failure handling**: A failed updater logs a warning and continues; the summary at the end shows what went wrong without stopping the run.
 - **Electron GUI**: A native macOS GUI with Touch ID auth, per-category checkboxes, and real-time progress output.
 - **Self-update**: The script finds its own git clone via symlink resolution and pulls on each run.
-- **Sparkle app updates**: macOS-only section delegates to antares `update-app.sh` to update third-party apps using the Sparkle framework (not in Homebrew). Gated on `skip_sparkle=1` and `command_exists antares`.
+- **Sparkle app updates**: macOS-only section auto-discovers installed apps with a Sparkle `SUFeedURL` (default `/Applications`, override via `SPARKLE_APP_DIRS`) and delegates each to antares `bin/updates-apply.sh` (default `~/Developer/2026/antares`, override via `ANTARES_DIR`). Gated on `skip_sparkle=1`/`only_sparkle=1` via `should_run`; silently skips if the antares updater binary isn't executable. Running apps can be skipped with `skip_sparkle_running=1`.
 - **Touch ID-friendly sudo**: keepalive interval tuned to avoid re-prompting within the 5-minute macOS sudo timeout; major OS upgrade detection warns before `softwareupdate --install --all`.
 
 ## Target Use Cases

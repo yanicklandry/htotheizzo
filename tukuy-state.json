@@ -1,19 +1,11 @@
 {
-  "specName": "sparkle-app-updates",
-  "completedPhases": [
-    "steering",
-    "discovery",
-    "init",
-    "requirements",
-    "design",
-    "validate-design",
-    "tasks",
-    "impl"
-  ],
+  "specName": "sudo-auth",
+  "completedPhases": [],
   "done": false,
   "completedQueueSpecs": [
     "script-cleanup",
-    "cache-cleanup"
+    "cache-cleanup",
+    "sparkle-app-updates"
   ],
   "briefPath": "docs/brief.md"
 }

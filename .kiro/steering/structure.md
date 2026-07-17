@@ -22,7 +22,7 @@ Flat and script-centric. The shell script is the primary artifact; everything el
 
 ### Time Machine toolkit
 **Location**: `time-machine/`  
-**Purpose**: Companion scripts for macOS Time Machine backup hygiene: `setup.sh`, `doctor.sh`, `estimate.sh`, `git-check.sh`, `RECOMMENDATIONS.md`. Integrated into the macOS maintenance pass of `htotheizzo.sh`.
+**Purpose**: Companion scripts for macOS Time Machine backup hygiene: `setup.sh`, `doctor.sh`, `estimate.sh`, `git-check.sh`, `backup.sh`, `RECOMMENDATIONS.md`. Integrated into the macOS maintenance pass of `htotheizzo.sh`.
 
 ### Documentation
 **Location**: `docs/`  

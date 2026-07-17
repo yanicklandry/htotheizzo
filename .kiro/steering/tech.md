@@ -22,6 +22,8 @@ Two independent layers that share no runtime coupling:
 - **`MAS_NO_AUTO_INDEX=1`**: Set before `mas upgrade` to suppress the auto-index warning.
 - **`only_<name>=1` mode**: Complement to `skip_<name>=1`. When any `only_*` var is set, `command_exists` silently skips everything not listed. Implemented via `_only_mode_active()` + `only_${name}` var check. Use for targeted runs (e.g. `only_brew=1 only_npm=1`).
 - **`SKIP_SUDO=1`**: Disables the `keep_sudo_alive()` loop for non-interactive/test environments. Set alongside `MOCK_MODE=1` when running `test.sh`.
+- **Sparkle app discovery**: `update_sparkle_apps()` does a two-pass filesystem-only scan (`defaults read <app>/Contents/Info SUFeedURL`) before any network calls, so discovered apps are logged up front. Do not gate this section on `command_exists` — there's no local binary to check; gate on `should_run sparkle` and the antares updater's executable bit instead.
+- **`should_run <name>`**: Preferred gating helper over ad-hoc `skip_<name>`/`only_<name>` checks inline — wraps both modes in one call (used by the sparkle and disk_maintenance sections).
 
 ## Development Standards
 
