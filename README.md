@@ -127,6 +127,26 @@ skip_pip=1 skip_pip3=1 skip_poetry=1 skip_conda=1 htotheizzo.sh
 
 All available skip variables: `skip_time_machine`, `skip_brew`, `skip_mas`, `skip_snap`, `skip_flatpak`, `skip_bun`, `skip_npm`, `skip_yarn`, `skip_pnpm`, `skip_deno`, `skip_pip`, `skip_pip3`, `skip_pipenv`, `skip_poetry`, `skip_pdm`, `skip_uv`, `skip_conda`, `skip_mamba`, `skip_gem`, `skip_rvm`, `skip_rbenv`, `skip_rustup`, `skip_cargo`, `skip_go`, `skip_composer`, `skip_cpan`, `skip_asdf`, `skip_mise`, `skip_nvm`, `skip_nodenv`, `skip_pyenv`, `skip_goenv`, `skip_jenv`, `skip_sdk`, `skip_tfenv`, `skip_docker`, `skip_helm`, `skip_kubectl`, `skip_gh`, `skip_gcloud`, `skip_aws`, `skip_az`, `skip_code`, `skip_pod`, `skip_flutter`, `skip_omz`, `skip_antibody`, `skip_fisher`, `skip_starship`, `skip_port`, `skip_nix-env`, `skip_kav`, `skip_apm`, `skip_spotlight`, `skip_launchpad`, `skip_sparkle`
 
+### Sparkle App Updates
+
+Sparkle apps are third-party macOS apps that self-update through the Sparkle framework (not Homebrew casks). Updates are delegated to a colleague's `antares` tool (`bin/update-app.sh`), which reads each app's Sparkle feed, installs the newest release, and relaunches it if it was running.
+
+- `skip_sparkle=1` — skip the whole Sparkle update section
+- `skip_sparkle_running=1` — skip apps that are currently running, instead of updating them in place
+- `ANTARES_DIR` — path to the antares checkout (default: `$HOME/Developer/2026/antares`)
+- `SPARKLE_APP_DIRS` — colon-separated list of directories to scan for Sparkle apps (default: `/Applications`)
+
+```bash
+# Skip Sparkle apps entirely
+skip_sparkle=1 htotheizzo.sh
+
+# Skip Sparkle apps that are currently running
+skip_sparkle_running=1 htotheizzo.sh
+
+# Scan a custom antares checkout and extra app directories
+ANTARES_DIR=$HOME/code/antares SPARKLE_APP_DIRS="/Applications:/Applications/Setapp" htotheizzo.sh
+```
+
 ## Time Machine Toolkit
 
 The `time-machine/` folder contains companion scripts for managing macOS Time Machine backups. These are standalone tools intended for developers who want to keep their backup footprint lean.

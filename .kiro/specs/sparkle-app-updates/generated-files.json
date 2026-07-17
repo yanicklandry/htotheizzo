@@ -1,6 +1,15 @@
 {
   "slug": "sparkle-app-updates",
-  "implCompletedAt": "2026-07-17T19:43:54.271Z",
-  "files": [],
+  "implCompletedAt": "2026-07-17T19:53:20.441Z",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "faa9451deb0a275e7828e633041c4295da5657294faa42730c8466125f148d30"
+    },
+    {
+      "path": "htotheizzo.sh",
+      "sha256": "4e928bfad37e5cecce95b4cbda1c0c8fab3de6a364df40174f7dca0c93b19730"
+    }
+  ],
   "acknowledgedAt": null
 }

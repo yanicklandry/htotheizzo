@@ -127,7 +127,7 @@ help() {
   echo "Environment Variables:"
   echo "  skip_<name>=1       Skip a specific package manager or feature"
   echo "  only_<name>=1       Run only the specified section(s); skip everything else"
-  echo "  Examples: skip_brew=1  only_sparkle=1  only_brew=1 only_npm=1"
+  echo "  Examples: skip_brew=1  skip_sparkle=1  only_sparkle=1  only_brew=1 only_npm=1"
   echo ""
   echo "Features:"
   echo "  - Updates 60+ package managers and tools"
@@ -967,16 +967,6 @@ update_sparkle_apps() {
   for app in "${_sparkle_apps[@]}"; do
     local app_name
     app_name=$(basename "$app" .app)
-
-    # Skip apps managed by Homebrew Cask (already updated by brew upgrade --cask)
-    # Brew cask copies .app into /Applications, so resolve via Caskroom directory lookup
-    local _norm_name
-    _norm_name=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-    if ls /opt/homebrew/Caskroom/ 2>/dev/null | grep -qi "^${_norm_name}" \
-    || ls /usr/local/Caskroom/ 2>/dev/null | grep -qi "^${_norm_name}"; then
-      log "Skipping Sparkle app managed by Homebrew Cask: $app_name"
-      continue
-    fi
 
     # Running-app skip (opt-in via skip_sparkle_running=1)
     if [[ -n "${skip_sparkle_running:-}" ]]; then
