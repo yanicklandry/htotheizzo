@@ -1,35 +1,39 @@
-## script-cleanup
+# Run Report
+
+Generated: 2026-07-17T20:20:13.733Z
+
+## sparkle-app-updates
 
 | Phase | Status | Elapsed | Cost |
 |-------|--------|---------|------|
-| steering | completed | 1m 19s | n/a |
-| discovery | completed | 1m 30s | n/a |
-| init | completed | 31s | n/a |
-| requirements | completed | 33s | n/a |
-| design | completed | 1m 58s | n/a |
-| validate-design | completed | 2m 10s | n/a |
+| steering | skipped | 0s | n/a |
+| discovery | skipped | 0s | n/a |
+| init | skipped | 0s | n/a |
+| requirements | skipped | 0s | n/a |
+| design | skipped | 0s | n/a |
+| validate-design | skipped | 0s | n/a |
 | tasks | skipped | 0s | n/a |
-| impl | completed | 2m 47s | n/a |
-| validate-impl | completed | 6m 25s | n/a |
-| **Total** | | 17m 16s | $0.00 |
+| impl | completed | 5m 2s | n/a |
+| validate-impl | completed | 5m 54s | n/a |
+| **Total** | | 10m 56s | $0.00 |
 
-## cache-cleanup
+## sudo-auth
 
 | Phase | Status | Elapsed | Cost |
 |-------|--------|---------|------|
-| steering | completed | 2m 2s | n/a |
-| discovery | completed | 1m 29s | n/a |
-| init | completed | 29s | n/a |
-| requirements | completed | 36s | n/a |
-| design | completed | 3m 18s | n/a |
-| validate-design | completed | 2m 15s | n/a |
-| tasks | skipped | 0s | n/a |
-| impl | completed | 1m 47s | n/a |
-| validate-impl | completed | 7m 30s | n/a |
-| **Total** | | 19m 30s | $0.00 |
+| steering | completed | 1m 17s | n/a |
+| discovery | completed | 27s | n/a |
+| init | completed | 27s | n/a |
+| requirements | completed | 29s | n/a |
+| design | completed | 1m 56s | n/a |
+| validate-design | completed | 1m 27s | n/a |
+| tasks | completed | 40s | n/a |
+| impl | completed | 25s | n/a |
+| validate-impl | completed | 2m 38s | n/a |
+| **Total** | | 9m 49s | $0.00 |
 
 ## Queue Total
 
 | Elapsed | Cost |
 |---------|------|
-| 36m 46s | $0.00 |
+| 20m 46s | $0.00 |

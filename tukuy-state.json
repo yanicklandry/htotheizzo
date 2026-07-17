@@ -8,13 +8,15 @@
     "design",
     "validate-design",
     "tasks",
-    "impl"
+    "impl",
+    "validate-impl"
   ],
-  "done": false,
+  "done": true,
   "completedQueueSpecs": [
     "script-cleanup",
     "cache-cleanup",
-    "sparkle-app-updates"
+    "sparkle-app-updates",
+    "sudo-auth"
   ],
   "briefPath": "docs/brief.md"
 }
