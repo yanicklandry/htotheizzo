@@ -1358,22 +1358,26 @@ update() {
 
   if command_exists yarn; then
     log "Updating yarn..."
-    local yarn_path
+    local yarn_path yarn_version
     yarn_path=$(which yarn)
-    
+    yarn_version=$(yarn --version 2>/dev/null || echo "unknown")
+
     if [[ "$yarn_path" == *"homebrew"* ]]; then
-      log "Yarn installed via Homebrew, updating through brew"
-      # Yarn will be updated when Homebrew updates
-      log "Yarn will be updated with Homebrew packages"
-    elif [[ "$yarn_path" == *"corepack"* ]] || [[ -x "$(command -v corepack)" ]]; then
-      log "Yarn installed via corepack, enabling latest version"
+      log "Yarn installed via Homebrew; updates with brew packages"
+    elif [[ "$yarn_path" == "$HOME/.yarn/bin/yarn" || "$yarn_version" == 1.* ]]; then
+      # Yarn Classic (1.x) is frozen at its final 1.22.x release and does not
+      # self-update. This is expected, not an error. Modern projects should
+      # move to Yarn Berry via corepack (`corepack enable`).
+      log "Yarn Classic $yarn_version is the final 1.x release (frozen); no update needed"
+    elif command_exists corepack; then
+      log "Updating yarn via corepack..."
       corepack enable || log "Warning: corepack enable failed"
       corepack prepare yarn@stable --activate || log "Warning: corepack yarn update failed"
     elif command_exists npm; then
       log "Attempting yarn update via npm..."
       npm install -g yarn --force || log "Warning: yarn update via npm failed"
     else
-      log "Warning: Skipping yarn update - no safe update method available"
+      log "Yarn found but no update method available; skipping"
     fi
     progress "Cleaning yarn cache"
     yarn cache clean || log "Warning: yarn cache clean failed"
