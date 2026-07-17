@@ -1,6 +1,8 @@
 {
   "specName": "storage-suggestions",
-  "completedPhases": [],
+  "completedPhases": [
+    "steering"
+  ],
   "done": false,
   "completedQueueSpecs": [
     "script-cleanup",
