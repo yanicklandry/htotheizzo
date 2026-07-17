@@ -2,15 +2,10 @@
   "specName": "sudo-auth",
   "completedPhases": [
     "steering",
-    "discovery"
+    "discovery",
+    "init"
   ],
   "done": false,
-  "preInitSpecs": [
-    "cache-cleanup",
-    "script-cleanup",
-    "sparkle-app-updates",
-    "sudo-auth"
-  ],
   "completedQueueSpecs": [
     "script-cleanup",
     "cache-cleanup",
