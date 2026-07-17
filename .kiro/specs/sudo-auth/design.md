@@ -24,8 +24,8 @@ This feature delivers two targeted fixes to `htotheizzo.sh` that reduce unnecess
 ## Boundary Commitments
 
 ### This Spec Owns
-- The `sleep` interval inside `keep_sudo_alive()` (lines 72–77 of `htotheizzo.sh`)
-- The major-upgrade detection heuristic and warning log immediately before the `softwareupdate --install --all` call (lines 993–1010 of `htotheizzo.sh`)
+- The `sleep` interval inside `keep_sudo_alive()` (currently lines 86–87 of `htotheizzo.sh`)
+- The major-upgrade detection heuristic and warning log immediately before the `softwareupdate --install --all` call (currently lines ~1179–1216 of `htotheizzo.sh`)
 
 ### Out of Boundary
 - PAM configuration, `sudoers` TTL changes, or launchd credential-extension techniques
@@ -49,9 +49,9 @@ This feature delivers two targeted fixes to `htotheizzo.sh` that reduce unnecess
 
 `htotheizzo.sh` is a single monolithic Bash script with no modules or imports. All logic lives in shell functions. The two affected areas are isolated:
 
-1. **`keep_sudo_alive()`** (lines 72–77): spawns a background loop that calls `sudo -v` then sleeps. The only change is the sleep constant.
+1. **`keep_sudo_alive()`** (lines 86–87): spawns a background loop that calls `sudo -v` then sleeps. The only change is the sleep constant.
 
-2. **softwareupdate block** (lines 993–1010): captures `sw_list` via `softwareupdate --list`, logs it, then branches on `skip_softwareupdate_major`. The addition inserts a detection step between the list capture and the install call.
+2. **softwareupdate block** (lines ~1179–1216): captures `sw_list` via `softwareupdate --list`, logs it, then branches on `skip_softwareupdate_major`. The addition inserts a detection step between the list capture and the install call.
 
 ### Architecture Pattern & Boundary Map
 
