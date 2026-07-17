@@ -1,5 +1,5 @@
 {
-  "specName": "cache-cleanup",
+  "specName": "sparkle-app-updates",
   "completedPhases": [
     "steering",
     "discovery",
@@ -7,13 +7,12 @@
     "requirements",
     "design",
     "validate-design",
-    "tasks",
-    "impl",
-    "validate-impl"
+    "tasks"
   ],
-  "done": true,
+  "done": false,
   "completedQueueSpecs": [
     "script-cleanup",
     "cache-cleanup"
-  ]
+  ],
+  "briefPath": "docs/brief.md"
 }
