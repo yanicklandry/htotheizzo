@@ -1,6 +1,8 @@
 {
   "specName": "sudo-auth",
-  "completedPhases": [],
+  "completedPhases": [
+    "steering"
+  ],
   "done": false,
   "completedQueueSpecs": [
     "script-cleanup",
