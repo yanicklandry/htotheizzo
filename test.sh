@@ -90,7 +90,7 @@ cleanup() {
 
 # Fixture factory for Sparkle-app update tests.
 #
-# Creates a minimal .app bundle with a SUFeedURL plist and a stub update-app.sh
+# Creates a minimal .app bundle with a SUFeedURL plist and a stub updates-apply.sh
 # under a caller-supplied temp directory, so tests never touch /Applications or
 # the real antares install.
 #
@@ -99,7 +99,7 @@ cleanup() {
 #
 # Outputs (relative to fixture_dir):
 #   Applications/<app_name>.app/Contents/Info.plist  — contains SUFeedURL
-#   antares/bin/update-app.sh                         — stub updater script
+#   antares/bin/updates-apply.sh                      — stub updater script
 #   stub_args                                         — sentinel; each invocation
 #                                                       of the stub appends its
 #                                                       args here
@@ -117,7 +117,7 @@ make_sparkle_fixture() {
     local feed_url="${3:-https://example.com/appcast.xml}"
 
     local app_contents="$fixture_dir/Applications/$app_name.app/Contents"
-    local stub_path="$fixture_dir/antares/bin/update-app.sh"
+    local stub_path="$fixture_dir/antares/bin/updates-apply.sh"
 
     # Create directory structure
     mkdir -p "$app_contents"
@@ -622,8 +622,8 @@ test_sparkle_no_apps_found() {
     local fixture_dir; fixture_dir=$(mktemp -d)
     # Create antares stub so we pass the updater-exists check
     mkdir -p "$fixture_dir/antares/bin"
-    printf '#!/usr/bin/env bash\n' > "$fixture_dir/antares/bin/update-app.sh"
-    chmod +x "$fixture_dir/antares/bin/update-app.sh"
+    printf '#!/usr/bin/env bash\n' > "$fixture_dir/antares/bin/updates-apply.sh"
+    chmod +x "$fixture_dir/antares/bin/updates-apply.sh"
     # Empty apps dir
     local apps_dir="$fixture_dir/Applications"
     mkdir -p "$apps_dir"

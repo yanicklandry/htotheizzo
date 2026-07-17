@@ -1,14 +1,18 @@
 {
   "slug": "sparkle-app-updates",
-  "implCompletedAt": "2026-07-17T19:53:20.441Z",
+  "implCompletedAt": "2026-07-17T20:03:41.414Z",
   "files": [
     {
       "path": "README.md",
-      "sha256": "faa9451deb0a275e7828e633041c4295da5657294faa42730c8466125f148d30"
+      "sha256": "d17f2d2696bd829e47676113cea625ef36f153fddd2ff019f6355addfa963b55"
     },
     {
       "path": "htotheizzo.sh",
-      "sha256": "4e928bfad37e5cecce95b4cbda1c0c8fab3de6a364df40174f7dca0c93b19730"
+      "sha256": "032019403403fd3192ffbefa9e66e38e4ed8d6c95e281237521127682ddf193c"
+    },
+    {
+      "path": "test.sh",
+      "sha256": "55596a1ce8f1220b94f25d07fb17f7907dd4ace17a474fefbcf63ce4402ba6df"
     }
   ],
   "acknowledgedAt": null

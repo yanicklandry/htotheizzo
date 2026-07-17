@@ -129,7 +129,7 @@ All available skip variables: `skip_time_machine`, `skip_brew`, `skip_mas`, `ski
 
 ### Sparkle App Updates
 
-Sparkle apps are third-party macOS apps that self-update through the Sparkle framework (not Homebrew casks). Updates are delegated to a colleague's `antares` tool (`bin/update-app.sh`), which reads each app's Sparkle feed, installs the newest release, and relaunches it if it was running.
+Sparkle apps are third-party macOS apps that self-update through the Sparkle framework (not Homebrew casks). Updates are delegated to a colleague's `antares` tool (`bin/updates-apply.sh`), which reads each app's Sparkle feed, installs the newest release, and relaunches it if it was running.
 
 - `skip_sparkle=1` — skip the whole Sparkle update section
 - `skip_sparkle_running=1` — skip apps that are currently running, instead of updating them in place
