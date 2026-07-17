@@ -24,6 +24,9 @@ Two independent layers that share no runtime coupling:
 - **`SKIP_SUDO=1`**: Disables the `keep_sudo_alive()` loop for non-interactive/test environments. Set alongside `MOCK_MODE=1` when running `test.sh`.
 - **Sparkle app discovery**: `update_sparkle_apps()` does a two-pass filesystem-only scan (`defaults read <app>/Contents/Info SUFeedURL`) before any network calls, so discovered apps are logged up front. Do not gate this section on `command_exists` — there's no local binary to check; gate on `should_run sparkle` and the antares updater's executable bit instead.
 - **`should_run <name>`**: Preferred gating helper over ad-hoc `skip_<name>`/`only_<name>` checks inline — wraps both modes in one call (used by the sparkle and disk_maintenance sections).
+- **Preflight check pattern**: `check_disk_space`, `check_network`, `check_uptime`, `check_battery` each gate on their own `skip_<check>_check=1` var, log warnings, and always `return 0` — a failed/skipped check never aborts the run. Follow this shape for new advisory checks.
+- **File logging**: `setup_file_logging()` sets `LOG_FILE` (default `~/logs/htotheizzo.log`), calls `rotate_logs()`, then `log()` appends to it directly. Gated on `skip_file_logging=1`. Deliberately avoids `exec ... | tee` (caused hanging issues).
+- **`send_notification <title> <message>`**: Best-effort native notification (`osascript` on macOS, `notify-send` on Linux). Gated on `skip_notifications=1`. Only logs on confirmed send — silent no-op if the OS notifier is unavailable.
 
 ## Development Standards
 

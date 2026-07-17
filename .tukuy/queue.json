@@ -1,15 +1,14 @@
 {
-  "backlog": [
-    "storage-suggestions"
-  ],
+  "backlog": [],
   "ready": [],
   "in-progress": [
-    "sudo-auth"
+    "storage-suggestions"
   ],
   "done": [
     "script-cleanup",
     "cache-cleanup",
-    "sparkle-app-updates"
+    "sparkle-app-updates",
+    "sudo-auth"
   ],
   "failed": [],
   "retryCount": {}

@@ -1,17 +1,7 @@
 {
-  "specName": "sudo-auth",
-  "completedPhases": [
-    "steering",
-    "discovery",
-    "init",
-    "requirements",
-    "design",
-    "validate-design",
-    "tasks",
-    "impl",
-    "validate-impl"
-  ],
-  "done": true,
+  "specName": "storage-suggestions",
+  "completedPhases": [],
+  "done": false,
   "completedQueueSpecs": [
     "script-cleanup",
     "cache-cleanup",
