@@ -1,9 +1,16 @@
 {
   "specName": "storage-suggestions",
   "completedPhases": [
-    "steering"
+    "steering",
+    "discovery"
   ],
   "done": false,
+  "preInitSpecs": [
+    "cache-cleanup",
+    "script-cleanup",
+    "sparkle-app-updates",
+    "sudo-auth"
+  ],
   "completedQueueSpecs": [
     "script-cleanup",
     "cache-cleanup",
