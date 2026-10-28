@@ -232,6 +232,10 @@ check_network() {
     connected=true
   elif ping -c 1 -W 5 1.1.1.1 >/dev/null 2>&1; then
     connected=true
+  elif command_exists curl && curl -fsS --max-time 5 -o /dev/null https://www.google.com; then
+    # ICMP is commonly blocked by VPNs/proxies/corporate networks even when HTTPS works;
+    # fall back to an actual HTTPS request before declaring no connectivity.
+    connected=true
   fi
 
   if [[ "$connected" == "true" ]]; then
@@ -938,8 +942,18 @@ update_sparkle_apps() {
     return 0
   fi
 
+  # Apps already kept current by `brew upgrade --cask` (ran earlier in this script)
+  # don't need a second, failure-prone update path through their Sparkle feed.
+  local _cask_app_paths=""
+  if command_exists brew; then
+    _cask_app_paths=$(HOMEBREW_NO_AUTO_UPDATE=1 brew info --cask --json=v2 $(brew list --cask 2>/dev/null) 2>/dev/null \
+      | grep -oE '"target"[[:space:]]*:[[:space:]]*"[^"]+\.app"' \
+      | sed -E 's/.*"target"[[:space:]]*:[[:space:]]*"//; s/"$//')
+  fi
+
   # Pass 1: discover Sparkle apps (filesystem only, no network)
   local -a _sparkle_apps=()
+  local -a _skipped_cask_names=()
   local _nullglob; _nullglob=$(shopt -p nullglob || true); shopt -s nullglob
 
   local IFS=:
@@ -947,11 +961,19 @@ update_sparkle_apps() {
     for app in "$root"/*.app; do
       local feed; feed=$(defaults read "$app/Contents/Info" SUFeedURL 2>/dev/null) || continue
       [[ "$feed" == http* ]] || continue
+      if [[ -n "$_cask_app_paths" ]] && grep -qxF "$app" <<< "$_cask_app_paths"; then
+        _skipped_cask_names+=("$(basename "$app" .app)")
+        continue
+      fi
       _sparkle_apps+=("$app")
     done
   done
 
   eval "$_nullglob"
+
+  if [[ ${#_skipped_cask_names[@]} -gt 0 ]]; then
+    log "Skipped ${#_skipped_cask_names[@]} Sparkle app(s) already kept current by Homebrew cask: $(IFS=', '; echo "${_skipped_cask_names[*]}")"
+  fi
 
   if [[ ${#_sparkle_apps[@]} -eq 0 ]]; then
     log "No Sparkle apps found in ${SPARKLE_APP_DIRS:-/Applications}."
@@ -1183,35 +1205,43 @@ update() {
       while IFS= read -r line; do log "$line"; done <<< "$sw_list"
       progress "Installing macOS software updates"
       log "Installing Apple Software Updates"
-      # Warn before installing a major OS upgrade: it requires interactive auth even as root.
-      if [[ -z "${skip_softwareupdate_major:-}" ]]; then
-        local current_major
-        current_major=$(sw_vers -productVersion 2>/dev/null | cut -d. -f1 || true)
-        if [[ -n "$current_major" ]]; then
-          local found_major_upgrade=0
-          while IFS= read -r ver_line; do
-            local update_major
-            update_major=$(echo "$ver_line" | grep -oE '[0-9]+' | head -1 || true)
-            if [[ -n "$update_major" && "$update_major" -gt "$current_major" ]] 2>/dev/null; then
-              found_major_upgrade=1
-              break
-            fi
-          done < <(echo "$sw_list" | grep -oE 'Version: [0-9]+' || true)
-          if [[ "$found_major_upgrade" -eq 1 ]]; then
-            log "⚠ WARNING: A major macOS upgrade is available in the update list."
-            log "⚠ Major OS upgrades require an interactive password that bypasses sudo credential caching."
-            log "⚠ You will be prompted for your password even though sudo is already authenticated."
-            log "⚠ To skip major upgrades and install only recommended updates, set: skip_softwareupdate_major=1"
+      # Detect whether a major OS upgrade is in the list: it requires a second,
+      # separate password prompt that bypasses sudo/Touch ID credential caching.
+      local current_major found_major_upgrade=0
+      current_major=$(sw_vers -productVersion 2>/dev/null | cut -d. -f1 || true)
+      if [[ -n "$current_major" ]]; then
+        while IFS= read -r ver_line; do
+          local update_major
+          update_major=$(echo "$ver_line" | grep -oE '[0-9]+' | head -1 || true)
+          if [[ -n "$update_major" && "$update_major" -gt "$current_major" ]] 2>/dev/null; then
+            found_major_upgrade=1
+            break
           fi
+        done < <(echo "$sw_list" | grep -oE 'Version: [0-9]+' || true)
+      fi
+
+      # On Apple Silicon, that second password can be supplied non-interactively via
+      # --stdinpass if it's stashed in Keychain ahead of time (one-time setup):
+      #   security add-generic-password -a "$THISUSER" -s htotheizzo-softwareupdate -w
+      local su_pass=""
+      if [[ "$found_major_upgrade" -eq 1 && "$(uname -m)" == "arm64" ]]; then
+        su_pass=$(security find-generic-password -a "$THISUSER" -s htotheizzo-softwareupdate -w 2>/dev/null || true)
+        if [[ -z "$su_pass" ]]; then
+          log "⚠ A major macOS upgrade is available; it needs a separate password beyond sudo/Touch ID."
+          log "⚠ To run it unattended, store your admin password once in Keychain:"
+          log "⚠   security add-generic-password -a \"$THISUSER\" -s htotheizzo-softwareupdate -w"
+          log "⚠ Without it, softwareupdate will pause and prompt for your password on the terminal."
         fi
       fi
-      # --recommended installs security patches and minor updates headlessly.
-      # Major OS upgrades (e.g. macOS Tahoe) require interactive auth even as root;
-      # skip them here with skip_softwareupdate_major=1 or upgrade manually.
-      if [[ -z "${skip_softwareupdate_major:-}" ]]; then
-        sudo softwareupdate --install --all --verbose || log "Warning: softwareupdate failed"
-      else
+
+      if [[ -n "$su_pass" ]]; then
+        log "Installing major macOS upgrade non-interactively via --stdinpass"
+        sudo softwareupdate --install --all --verbose --user "$THISUSER" --stdinpass <<< "$su_pass" || log "Warning: softwareupdate failed"
+        su_pass=""
+      elif [[ -n "${skip_softwareupdate_major:-}" ]]; then
         sudo softwareupdate --install --recommended --verbose || log "Warning: softwareupdate failed"
+      else
+        sudo softwareupdate --install --all --verbose || log "Warning: softwareupdate failed"
       fi
     elif [[ -n "${skip_softwareupdate:-}" ]]; then
       log "Skipped softwareupdate"
