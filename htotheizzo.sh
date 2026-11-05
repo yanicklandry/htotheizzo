@@ -4,7 +4,6 @@ set -euo pipefail
 
 # Non-interactive mode for all package managers (no confirmation prompts)
 export HOMEBREW_NO_INTERACTIVE=1
-export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
 export DEBIAN_FRONTEND=noninteractive
 export HOMEBREW_CLEANUP_MAX_AGE_DAYS=30   # default is 120
 
