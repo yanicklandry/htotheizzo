@@ -131,6 +131,8 @@ All available skip variables: `skip_time_machine`, `skip_brew`, `skip_mas`, `ski
 
 Sparkle apps are third-party macOS apps that self-update through the Sparkle framework (not Homebrew casks). Updates are delegated to a colleague's `antares` tool (`bin/updates-apply.sh`), which reads each app's Sparkle feed, installs the newest release, and relaunches it if it was running.
 
+Apps already kept current by `brew upgrade --cask` (which runs earlier in the same script) are skipped here automatically — Sparkle is only used for apps Homebrew doesn't manage, so the same app never gets a redundant, failure-prone second update path.
+
 - `skip_sparkle=1` — skip the whole Sparkle update section
 - `skip_sparkle_running=1` — skip apps that are currently running, instead of updating them in place
 - `ANTARES_DIR` — path to the antares checkout (default: `$HOME/Developer/2026/antares`)
@@ -146,6 +148,19 @@ skip_sparkle_running=1 htotheizzo.sh
 # Scan a custom antares checkout and extra app directories
 ANTARES_DIR=$HOME/code/antares SPARKLE_APP_DIRS="/Applications:/Applications/Setapp" htotheizzo.sh
 ```
+
+### macOS Software Update
+
+- `skip_softwareupdate=1` — skip `softwareupdate` entirely
+- `skip_softwareupdate_major=1` — install only `--recommended` updates, skipping any major OS upgrade
+
+A major macOS upgrade (e.g. a new yearly release) needs a second, separate password that bypasses sudo/Touch ID credential caching — Apple requires this regardless of how this script authenticates. On Apple Silicon, that password can be supplied non-interactively by stashing it in Keychain once:
+
+```bash
+security add-generic-password -a "$(whoami)" -s htotheizzo-softwareupdate -w
+```
+
+If that Keychain entry exists when a major upgrade is detected, it's installed unattended via `softwareupdate --stdinpass`. Without it, the script falls back to its previous behavior: it proceeds with `--install --all` and the OS will pause for an interactive password prompt on the terminal.
 
 ## Time Machine Toolkit
 
