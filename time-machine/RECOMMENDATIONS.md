@@ -1,5 +1,24 @@
 # Time Machine Strategy for Git-Heavy Developers
 
+## Toolkit Overview
+
+This folder is a self-contained backup toolkit built around one idea: if a
+file is tracked in git (or trivially reconstructible, like `node_modules`),
+Time Machine backing it up is wasted space. Five scripts:
+
+| Script | Purpose | Needs sudo? |
+|---|---|---|
+| `setup.sh` | Sets the Time Machine destination volume and registers the recommended exclusions (caches, build tools, cloud-synced app data) | Yes |
+| `doctor.sh` | Health check: is the backup volume mounted, how much free space is left, how old is the last backup, exclusion audit | No |
+| `estimate.sh` | Estimates how large a first backup would be and recommends a drive size before you buy one | No |
+| `git-check.sh [dir]` | Scans a directory (default `~/Documents`), lists every git repo under it, and reports which files are *not* tracked by any repo — those are the only ones that actually need a backup | No |
+| `backup.sh` | One-time fallback: tars up critical non-git files (SSH/GPG keys, etc.) into `~/backup-YYYY-MM-DD.tar.gz` without needing Time Machine at all | No |
+
+Typical flow: `estimate.sh` to size a drive → `setup.sh` once to configure
+exclusions → `doctor.sh` periodically to confirm backups are still healthy →
+`git-check.sh` whenever you want to double check nothing outside git is
+being missed.
+
 ## What Time Machine Actually Protects
 
 For developers who live in git, Time Machine's real value is narrow but critical:
