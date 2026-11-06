@@ -55,6 +55,32 @@ Skills are located in `.claude/skills/kiro-*/SKILL.md`
 - Keep steering current and verify alignment with `/kiro-spec-status`
 - Follow the user's instructions precisely, and within that scope act autonomously: gather the necessary context and complete the requested work end-to-end in this run, asking questions only when essential information is missing or the instructions are critically ambiguous.
 
+## Live checkout discipline
+
+`~/bin/.htotheizzo` is the **live checkout**: `crontab -l` runs
+`~/bin/htotheizzo.sh` (a symlink into it) on a schedule, unattended. Whatever is
+checked out there — another branch, an uncommitted edit — is what runs on this
+Mac next time cron fires. So:
+
+- **Never edit, commit, or switch branches directly in `~/bin/.htotheizzo`.**
+  Keep it on `master`; the only operation there is a fast-forward `git pull`
+  after merging a PR.
+- **Do new work in its own worktree**, cut from `origin/master`:
+  ```bash
+  git -C ~/bin/.htotheizzo fetch origin
+  git -C ~/bin/.htotheizzo worktree add ../htotheizzo-<slug> -b <type>/<slug> origin/master
+  ```
+  (A Kiro spec or an agent's own worktree, e.g. under `.claude/worktrees/`, is
+  fine — the rule is "not the live checkout," not "this exact path.")
+- Branch → PR → merge → `git -C ~/bin/.htotheizzo pull --ff-only` → remove the
+  worktree and branch. No second maintainer here, so "review" can just be a
+  self-review pass (or `/kiro-review`) rather than waiting on someone else —
+  that doesn't change the live-checkout rule itself.
+- This matters more here than on a read-only tool: an uncommitted or
+  half-finished edit to an *update* script, picked up by cron, doesn't just
+  produce a bad report — it can install, upgrade, or delete something for
+  real, unattended.
+
 ## Steering Configuration
 - Load entire `.kiro/steering/` as project memory
 - Default files: `product.md`, `tech.md`, `structure.md`

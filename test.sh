@@ -615,6 +615,64 @@ test_sparkle_delegation() {
     fi
 }
 
+test_sparkle_antares_ignore() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "App in antares' updates-ignore.txt is skipped, others still update"
+
+    local fixture_dir; fixture_dir=$(mktemp -d)
+    make_sparkle_fixture "$fixture_dir" "IgnoredApp" "https://example.com/appcast.xml"
+    mkdir -p "$fixture_dir/Applications/KeptApp.app/Contents"
+    defaults write "$fixture_dir/Applications/KeptApp.app/Contents/Info" SUFeedURL "https://example.com/appcast.xml"
+    local sentinel="$fixture_dir/stub_args"
+
+    local antares_home="$fixture_dir/antares-home"
+    mkdir -p "$antares_home"
+    # Case differs from the fixture's app name on purpose: matching must be
+    # case-insensitive, same as antares' own _drop_ignored.
+    printf '# comment, skipped\nignoredapp\tpinned for a test\n' > "$antares_home/updates-ignore.txt"
+
+    local output
+    output=$(ANTARES_DIR="$fixture_dir/antares" \
+             ANTARES_HOME="$antares_home" \
+             SPARKLE_APP_DIRS="$fixture_dir/Applications" \
+             STUB_SENTINEL="$sentinel" \
+             SKIP_SUDO=1 \
+             skip_file_logging=1 \
+             skip_softwareupdate=1 skip_xcode_select=1 skip_disk_maintenance=1 \
+             skip_system_maintenance=1 skip_spotlight=1 skip_launchpad=1 \
+             skip_battery_check=1 skip_brew=1 skip_mas=1 \
+             skip_npm=1 skip_yarn=1 skip_pnpm=1 skip_bun=1 skip_deno=1 \
+             skip_nvm=1 skip_nodenv=1 skip_pip=1 skip_pip3=1 skip_pipenv=1 \
+             skip_poetry=1 skip_pdm=1 skip_uv=1 skip_pyenv=1 skip_conda=1 \
+             skip_mamba=1 skip_pixi=1 skip_gem=1 skip_rvm=1 skip_rbenv=1 \
+             skip_rustup=1 skip_cargo=1 skip_go=1 skip_goenv=1 skip_composer=1 \
+             skip_sdk=1 skip_jenv=1 skip_docker=1 skip_podman=1 skip_helm=1 \
+             skip_flutter=1 skip_asdf=1 skip_mise=1 skip_proto=1 skip_pkgx=1 \
+             skip_tfenv=1 skip_gh=1 skip_gcloud=1 skip_az=1 \
+             skip_pod=1 skip_kav=1 skip_apm=1 skip_fisher=1 \
+             skip_antibody=1 skip_zinit=1 skip_self_update=1 skip_size_estimate=1 \
+             ./htotheizzo.sh 2>&1 || true)
+
+    local invocation_count=0
+    [[ -f "$sentinel" ]] && invocation_count=$(wc -l < "$sentinel" | tr -d ' ')
+
+    local kept_invoked=0
+    [[ -f "$sentinel" ]] && grep -qF "$fixture_dir/Applications/KeptApp.app" "$sentinel" && kept_invoked=1
+
+    local ignored_invoked=0
+    [[ -f "$sentinel" ]] && grep -qi "IgnoredApp" "$sentinel" && ignored_invoked=1
+
+    local logged_skip; logged_skip=$(echo "$output" | grep -c "ignored via antares.*IgnoredApp" || true)
+
+    rm -rf "$fixture_dir"
+
+    if [[ $invocation_count -eq 1 && $kept_invoked -eq 1 && $ignored_invoked -eq 0 && $logged_skip -ge 1 ]]; then
+        log_pass "IgnoredApp skipped (case-insensitive), KeptApp still delegated"
+    else
+        log_fail "Antares ignore handling failed (invocations:$invocation_count kept:$kept_invoked ignored:$ignored_invoked logged:$logged_skip)"
+    fi
+}
+
 test_sparkle_no_apps_found() {
     TESTS_RUN=$((TESTS_RUN + 1))
     log_test "Empty app dir produces 'No Sparkle apps found' log"
@@ -785,6 +843,7 @@ main() {
     test_sparkle_missing_antares
     test_sparkle_mock_mode
     test_sparkle_delegation
+    test_sparkle_antares_ignore
     test_sparkle_no_apps_found
     test_sparkle_failure_tolerance
     test_sparkle_regression
