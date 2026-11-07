@@ -50,7 +50,7 @@
   - _Depends: 2.1, 2.2_
 
 - [ ] 3. Integration: align estimate.sh, setup.sh, and git-check.sh with the shared vendor-dir match list
-- [ ] 3.1 (P) Source estimate.sh's dev-folder sizing from the shared libraries
+- [x] 3.1 (P) Source estimate.sh's dev-folder sizing from the shared libraries
   - Replace the unbounded `$HOME`-wide `node_modules` find with `find_vendor_matches` over `read_dev_folders`' output for the "Excluded: caches and build tools" row
   - Replace the hardcoded `DEV_DIRS` array with `read_dev_folders`' output for the "Developer folder" breakdown section; `GENERATED_PATTERNS` and every other row/section are unchanged
   - Antares-absent behavior relies entirely on `read_dev_folders`' own fallback (no separate fallback branch added in `estimate.sh`); never opens an antares-owned path for writing
@@ -96,3 +96,4 @@
 - 2.2 reviewer follow-up (non-blocking): `exclude-vendor.sh`'s `tmutil addexclusion` call doesn't check its own exit status, so a real failure would still be counted/printed as `[excluded]` rather than logged as a warning per design.md's Error Handling section. Mirrors a pre-existing identical gap in `setup.sh` (not a novel deviation); low-probability against non-sudo, user-owned paths. Noted for optional future hardening across both scripts.
 - 2.3 cross-branch note: this branch was cut from `master` before the still-open `docs/time-machine-toolkit-overview` PR (#17) merged, so `RECOMMENDATIONS.md` here gained its own new "Toolkit Overview" table independently of that PR's table. Expect a merge conflict/duplicate-table cleanup whenever both PRs land — not a defect in either branch on its own.
 - 2.3 reviewer follow-up (non-blocking, cosmetic): the new launchd plist template's explanatory XML comment contains a literal `--install-launchd` double-hyphen, which is invalid inside an XML comment per the strict spec (macOS's `plutil`/`launchctl` don't care, but a strict XML parser does). Optional future fix: reword to avoid `--`.
+- 3.1 reviewer follow-up (FYI, non-blocking): `estimate.sh`'s "Developer folder" breakdown now runs `GENERATED_PATTERNS` (15 patterns x `find -maxdepth 6`) over every antares `category=dev` folder instead of 3 hardcoded ones — a legitimate, design-sanctioned change, but real-world runtime on antares-heavy machines (many tracked dev folders) will be noticeably longer than before. Worth knowing if `estimate.sh`'s run time becomes a complaint later.
