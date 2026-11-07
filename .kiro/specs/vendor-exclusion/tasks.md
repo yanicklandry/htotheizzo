@@ -68,7 +68,7 @@
   - _Boundary: setup.sh_
   - _Depends: 1.1_
 
-- [ ] 3.3 (P) Filter git-check.sh's untracked-risk reports by the vendor-dir match list
+- [x] 3.3 (P) Filter git-check.sh's untracked-risk reports by the vendor-dir match list
   - "Items NOT in any git repo" loop skips any item whose basename matches `is_vendor_dir_path`
   - "Untracked files inside git repos" loop filters listed paths through the same check before printing or counting them
   - Summary counts (items outside git, total bytes) reflect the filtered results
@@ -97,3 +97,4 @@
 - 2.3 cross-branch note: this branch was cut from `master` before the still-open `docs/time-machine-toolkit-overview` PR (#17) merged, so `RECOMMENDATIONS.md` here gained its own new "Toolkit Overview" table independently of that PR's table. Expect a merge conflict/duplicate-table cleanup whenever both PRs land — not a defect in either branch on its own.
 - 2.3 reviewer follow-up (non-blocking, cosmetic): the new launchd plist template's explanatory XML comment contains a literal `--install-launchd` double-hyphen, which is invalid inside an XML comment per the strict spec (macOS's `plutil`/`launchctl` don't care, but a strict XML parser does). Optional future fix: reword to avoid `--`.
 - 3.1 reviewer follow-up (FYI, non-blocking): `estimate.sh`'s "Developer folder" breakdown now runs `GENERATED_PATTERNS` (15 patterns x `find -maxdepth 6`) over every antares `category=dev` folder instead of 3 hardcoded ones — a legitimate, design-sanctioned change, but real-world runtime on antares-heavy machines (many tracked dev folders) will be noticeably longer than before. Worth knowing if `estimate.sh`'s run time becomes a complaint later.
+- 3.3 reviewer follow-up (non-blocking): while adding the vendor-dir filter, the implementer also rewrote `git-check.sh`'s `mapfile -t untracked < <(...)` to a portable `while read` loop, since `mapfile` is unavailable on macOS's stock `/bin/bash` 3.2 — out-of-scope relative to the literal task text, but verified to preserve identical flags/truncation/read-order and fixes a latent pre-existing portability bug. Accepted as-is.

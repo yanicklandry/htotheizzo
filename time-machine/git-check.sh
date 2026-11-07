@@ -5,6 +5,10 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/vendor-dirs.sh
+source "$SCRIPT_DIR/lib/vendor-dirs.sh"
+
 SCAN_DIR="${1:-$HOME/Documents}"
 SCAN_DIR="${SCAN_DIR%/}"  # strip trailing slash
 
@@ -50,6 +54,10 @@ NOT_GIT=()
 TOTAL_NOT_GIT=0
 
 while IFS= read -r item; do
+    # Skip reconstructible vendor/build directories (e.g. node_modules):
+    # they don't need a backup safety net.
+    is_vendor_dir_path "$item" && continue
+
     # Check if this item is inside any of the known repos
     in_repo=false
     for repo in "${GIT_REPOS[@]}"; do
@@ -85,7 +93,12 @@ header "Untracked files inside git repos (not committed, not in .gitignore)"
 ANY_UNTRACKED=false
 for repo in "${GIT_REPOS[@]}"; do
     cd "$repo" 2>/dev/null || continue
-    mapfile -t untracked < <(git ls-files --others --exclude-standard 2>/dev/null | head -20)
+    untracked=()
+    while IFS= read -r f; do
+        # Skip reconstructible vendor/build paths (e.g. build/, dist/).
+        is_vendor_dir_path "$f" && continue
+        untracked+=("$f")
+    done < <(git ls-files --others --exclude-standard 2>/dev/null | head -20)
     if [[ ${#untracked[@]} -gt 0 ]]; then
         ANY_UNTRACKED=true
         echo -e "  ${YELLOW}${repo/#$HOME/~}${NC}"
