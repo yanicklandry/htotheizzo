@@ -33,7 +33,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 2.1, 2.2, 2.3, 2.4, 3.1, 3.2_
   - _Depends: 1.1, 1.2_
 
-- [ ] 2.2 Implement apply mode with idempotent exclusion
+- [x] 2.2 Implement apply mode with idempotent exclusion
   - `--apply` checks `tmutil isexcluded` for each match before calling `tmutil addexclusion`; already-excluded matches are skipped and counted separately from newly-excluded ones
   - No `sudo` is required or attempted anywhere in the script
   - Prints a summary of excluded count, skipped count, and total bytes
@@ -93,3 +93,4 @@
 
 ## Implementation Notes
 - 1.3 reviewer follow-up (non-blocking): `smoke-test.sh`'s comment/blank-line fixture lines don't actually regression-test the skip logic (the awk empty-field filter coincidentally absorbs them even with the explicit skip-check removed); no fixture exercises "one TSV present, the other missing"; `mktemp -d`'s exit code isn't checked. None required by design.md's Testing Strategy — noted here for optional future hardening.
+- 2.2 reviewer follow-up (non-blocking): `exclude-vendor.sh`'s `tmutil addexclusion` call doesn't check its own exit status, so a real failure would still be counted/printed as `[excluded]` rather than logged as a warning per design.md's Error Handling section. Mirrors a pre-existing identical gap in `setup.sh` (not a novel deviation); low-probability against non-sudo, user-owned paths. Noted for optional future hardening across both scripts.

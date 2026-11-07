@@ -3,17 +3,19 @@
 #
 # Sweeps antares-tracked `category=dev` folders for reconstructible
 # vendor/build directories (node_modules, .venv, dist, build, ...) and
-# reports what Time Machine would stop backing up. Defaults to --dry-run.
+# either reports what Time Machine would stop backing up (--dry-run,
+# the default) or actually excludes those matches (--apply).
 #
-# `--apply` is recognized by the CLI here but its actual `tmutil
-# addexclusion` logic is task 2.2's job - until that lands, --apply
-# behaves identically to --dry-run (report only, exclude nothing) so the
-# flag is never a silent no-op that could be mistaken for a working apply.
+# In apply mode, each match is checked with `tmutil isexcluded` before
+# `tmutil addexclusion` is ever called - an already-excluded match is
+# skipped rather than re-applied, which makes repeated --apply runs
+# idempotent (a second run against unchanged folders reports 0 newly
+# excluded).
 #
 # Usage: exclude-vendor.sh [--dry-run|--apply|--help]
 #   --dry-run   Report matches and total bytes. No changes. (default)
-#   --apply     Not yet implemented end-to-end (see task 2.2) - currently
-#               behaves identically to --dry-run.
+#   --apply     Exclude every match from Time Machine (idempotent - an
+#               already-excluded match is skipped, not re-applied).
 #   --help, -h  Show this usage and exit.
 #
 # Never requires sudo.
@@ -40,9 +42,10 @@ Usage: exclude-vendor.sh [--dry-run|--apply|--help]
 
   --dry-run   Report vendor/build matches and total bytes. Changes
               nothing. (default when no flag is given)
-  --apply     Not yet implemented end-to-end - task 2.2 adds the actual
-              tmutil exclusion logic. Currently behaves identically to
-              --dry-run: reports matches only, excludes nothing.
+  --apply     Exclude every matched path from Time Machine. Checks
+              `tmutil isexcluded` first, so already-excluded matches are
+              skipped rather than re-applied (idempotent). Never uses
+              sudo.
   --help, -h  Show this usage and exit.
 EOF
 }
@@ -117,6 +120,15 @@ echo "────────────────────────�
 
 TOTAL_BYTES=0
 MATCH_COUNT=0
+EXCLUDED_COUNT=0
+SKIPPED_COUNT=0
+
+# is_already_excluded <path>
+#   Same `tmutil isexcluded` + grep-for-[Excluded] convention setup.sh
+#   already uses, kept consistent here rather than re-invented.
+is_already_excluded() {
+    tmutil isexcluded "$1" 2>/dev/null | grep -q '\[Excluded\]'
+}
 
 while IFS=$'\t' read -r folder_name folder_path; do
     [[ -z "${folder_name:-}" ]] && continue
@@ -131,7 +143,19 @@ while IFS=$'\t' read -r folder_name folder_path; do
         sz=$(dir_size_bytes "$match")
         TOTAL_BYTES=$(( TOTAL_BYTES + sz ))
         MATCH_COUNT=$(( MATCH_COUNT + 1 ))
-        printf '  %-70s %10s\n' "$match" "$(human_bytes "$sz")"
+
+        if [[ "$MODE" == "apply" ]]; then
+            if is_already_excluded "$match"; then
+                SKIPPED_COUNT=$(( SKIPPED_COUNT + 1 ))
+                printf '  %-70s %10s  %s\n' "$match" "$(human_bytes "$sz")" "[already excluded]"
+            else
+                tmutil addexclusion "$match"
+                EXCLUDED_COUNT=$(( EXCLUDED_COUNT + 1 ))
+                printf '  %-70s %10s  %s\n' "$match" "$(human_bytes "$sz")" "[excluded]"
+            fi
+        else
+            printf '  %-70s %10s\n' "$match" "$(human_bytes "$sz")"
+        fi
     done < <(find_vendor_matches "$folder_path")
 done < <(read_dev_folders "$TARGET_HOME")
 
@@ -141,8 +165,9 @@ echo -e "${BOLD}Total bytes:${NC}   $TOTAL_BYTES ($(human_bytes "$TOTAL_BYTES"))
 echo ""
 
 if [[ "$MODE" == "apply" ]]; then
-    warn "--apply does not yet exclude anything (task 2.2 adds the tmutil logic)."
-    warn "This run only reported matches, identical to --dry-run."
+    echo -e "${BOLD}Excluded:${NC} $EXCLUDED_COUNT"
+    echo -e "${BOLD}Skipped (already excluded):${NC} $SKIPPED_COUNT"
+    success "Apply complete - $EXCLUDED_COUNT newly excluded, $SKIPPED_COUNT already excluded."
 else
     info "Dry-run only - no Time Machine exclusion state was changed."
 fi
