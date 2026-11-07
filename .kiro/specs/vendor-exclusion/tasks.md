@@ -16,7 +16,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
   - _Boundary: lib/vendor-dirs.sh_
 
-- [ ] 1.3 Smoke-test both shared libraries against fixture trees
+- [x] 1.3 Smoke-test both shared libraries against fixture trees
   - Fixture TSVs covering: a name collision between a curated and an auto row, a row with `category` other than `dev`, and a row with a fractional threshold value
   - Fixture directory tree exercising the `find_vendor_matches` edge cases from 1.2
   - Cross-check that `is_vendor_dir_path` agrees with `find_vendor_matches` on the same fixture tree
@@ -90,3 +90,6 @@
   - Observable completion: all three scripts exit successfully, with output matching the documented fallback behavior for each
   - _Requirements: 1.6, 5.3_
   - _Depends: 2.1, 3.1, 3.2_
+
+## Implementation Notes
+- 1.3 reviewer follow-up (non-blocking): `smoke-test.sh`'s comment/blank-line fixture lines don't actually regression-test the skip logic (the awk empty-field filter coincidentally absorbs them even with the explicit skip-check removed); no fixture exercises "one TSV present, the other missing"; `mktemp -d`'s exit code isn't checked. None required by design.md's Testing Strategy — noted here for optional future hardening.
