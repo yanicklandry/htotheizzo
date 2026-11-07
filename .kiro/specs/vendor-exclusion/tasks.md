@@ -40,7 +40,7 @@
   - Observable completion: the first `--apply` run against a fixture excludes N matches and reports N excluded / 0 skipped; a second consecutive `--apply` run against the same fixture reports 0 excluded / N skipped
   - _Requirements: 3.3, 3.4, 3.5, 3.6, 3.7_
 
-- [ ] 2.3 Add launchd daily-schedule template, self-install flag, and toolkit documentation update
+- [x] 2.3 Add launchd daily-schedule template, self-install flag, and toolkit documentation update
   - New `launchd/io.github.yanicklandry.htotheizzo.exclude-vendor.plist.template` using `__HOME__`/`__SCRIPT__`/`__PROG__` substitution (the pattern antares' own plists use), with a daily `StartCalendarInterval`
   - `--install-launchd` flag resolves the script's own path, substitutes the template, writes the result to `~/Library/LaunchAgents/`, and loads it via `launchctl`, unloading first if already installed so re-installs stay idempotent
   - Scheduled run's stdout/stderr route to `~/logs/htotheizzo-exclude-vendor.{out,err}.log`, matching htotheizzo's existing `~/logs/` convention
@@ -94,3 +94,5 @@
 ## Implementation Notes
 - 1.3 reviewer follow-up (non-blocking): `smoke-test.sh`'s comment/blank-line fixture lines don't actually regression-test the skip logic (the awk empty-field filter coincidentally absorbs them even with the explicit skip-check removed); no fixture exercises "one TSV present, the other missing"; `mktemp -d`'s exit code isn't checked. None required by design.md's Testing Strategy — noted here for optional future hardening.
 - 2.2 reviewer follow-up (non-blocking): `exclude-vendor.sh`'s `tmutil addexclusion` call doesn't check its own exit status, so a real failure would still be counted/printed as `[excluded]` rather than logged as a warning per design.md's Error Handling section. Mirrors a pre-existing identical gap in `setup.sh` (not a novel deviation); low-probability against non-sudo, user-owned paths. Noted for optional future hardening across both scripts.
+- 2.3 cross-branch note: this branch was cut from `master` before the still-open `docs/time-machine-toolkit-overview` PR (#17) merged, so `RECOMMENDATIONS.md` here gained its own new "Toolkit Overview" table independently of that PR's table. Expect a merge conflict/duplicate-table cleanup whenever both PRs land — not a defect in either branch on its own.
+- 2.3 reviewer follow-up (non-blocking, cosmetic): the new launchd plist template's explanatory XML comment contains a literal `--install-launchd` double-hyphen, which is invalid inside an XML comment per the strict spec (macOS's `plutil`/`launchctl` don't care, but a strict XML parser does). Optional future fix: reword to avoid `--`.

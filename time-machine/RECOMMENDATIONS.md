@@ -1,5 +1,16 @@
 # Time Machine Strategy for Git-Heavy Developers
 
+## Toolkit Overview
+
+| Script | Purpose | Needs sudo |
+|---|---|---|
+| `setup.sh` | Sets the Time Machine destination and adds recommended exclusions | Yes |
+| `doctor.sh` | Checks backup health and reports issues | No |
+| `estimate.sh` | Estimates how much space a first backup would need | No |
+| `exclude-vendor.sh` | Auto-excludes vendor/build dirs (`node_modules`, `.venv`, `dist`, ...) from Time Machine using antares' folder discovery, with a daily `launchd` schedule via `--install-launchd` | No |
+| `git-check.sh` | Scans a directory and reports files not tracked by any git repo | No |
+| `backup.sh` | One-time copy of critical non-git files to a dated archive | No |
+
 ## What Time Machine Actually Protects
 
 For developers who live in git, Time Machine's real value is narrow but critical:
@@ -38,7 +49,9 @@ These directories are reconstructible and bloat your backup unnecessarily:
 | `~/.cargo/registry` | Rust crate cache |
 | `~/Library/Containers/com.docker.docker` | Docker VM disk |
 
-Use **Asimov** to automatically exclude all `node_modules` and `vendor/` directories system-wide:
+On a Mac that already runs antares (`~/Developer/2026/antares`), `exclude-vendor.sh` handles this automatically: it reuses antares' own folder discovery to find `node_modules`/`.venv`/`dist`/`build`/etc. and excludes them from Time Machine (dry-run by default, `--apply` to act, `--install-launchd` to schedule it daily). See the Toolkit Overview above.
+
+**Fallback for Macs without antares installed**: Homebrew's **Asimov** formula automatically excludes all `node_modules` and `vendor/` directories system-wide:
 ```
 brew install asimov
 sudo brew services start asimov

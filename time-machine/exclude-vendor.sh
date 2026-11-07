@@ -12,11 +12,17 @@
 # idempotent (a second run against unchanged folders reports 0 newly
 # excluded).
 #
-# Usage: exclude-vendor.sh [--dry-run|--apply|--help]
-#   --dry-run   Report matches and total bytes. No changes. (default)
-#   --apply     Exclude every match from Time Machine (idempotent - an
-#               already-excluded match is skipped, not re-applied).
-#   --help, -h  Show this usage and exit.
+# Usage: exclude-vendor.sh [--dry-run|--apply|--install-launchd|--help]
+#   --dry-run         Report matches and total bytes. No changes. (default)
+#   --apply           Exclude every match from Time Machine (idempotent - an
+#                      already-excluded match is skipped, not re-applied).
+#   --install-launchd Install (or re-install) a per-user launchd agent that
+#                      runs `exclude-vendor.sh --apply` daily. Idempotent -
+#                      unloads any previously-installed job with the same
+#                      label before loading the freshly-written one, so
+#                      running this twice in a row leaves exactly one job
+#                      loaded.
+#   --help, -h        Show this usage and exit.
 #
 # Never requires sudo.
 
@@ -38,15 +44,18 @@ warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 
 usage() {
     cat <<'EOF'
-Usage: exclude-vendor.sh [--dry-run|--apply|--help]
+Usage: exclude-vendor.sh [--dry-run|--apply|--install-launchd|--help]
 
-  --dry-run   Report vendor/build matches and total bytes. Changes
-              nothing. (default when no flag is given)
-  --apply     Exclude every matched path from Time Machine. Checks
-              `tmutil isexcluded` first, so already-excluded matches are
-              skipped rather than re-applied (idempotent). Never uses
-              sudo.
-  --help, -h  Show this usage and exit.
+  --dry-run         Report vendor/build matches and total bytes. Changes
+                     nothing. (default when no flag is given)
+  --apply           Exclude every matched path from Time Machine. Checks
+                     `tmutil isexcluded` first, so already-excluded matches
+                     are skipped rather than re-applied (idempotent). Never
+                     uses sudo.
+  --install-launchd Install (or re-install) a per-user launchd agent that
+                     runs this script with --apply once a day. Idempotent -
+                     safe to run more than once.
+  --help, -h        Show this usage and exit.
 EOF
 }
 
@@ -59,6 +68,9 @@ case "${1:-}" in
         ;;
     --apply)
         MODE="apply"
+        ;;
+    --install-launchd)
+        MODE="install-launchd"
         ;;
     --help|-h)
         usage
@@ -94,6 +106,50 @@ resolve_home() {
 }
 
 TARGET_HOME="$(resolve_home)"
+
+# ── launchd self-install ──────────────────────────────────────────────────────
+# Installs a per-user launchd agent that runs this script with --apply once a
+# day. Mirrors antares' bin/install.sh __HOME__/__SCRIPT__/__PROG__ template
+# substitution and launchctl bootout-then-bootstrap sequence, so re-running
+# this twice in a row leaves exactly one job loaded rather than two.
+install_launchd() {
+    local label="io.github.yanicklandry.htotheizzo.exclude-vendor"
+    local template="$SCRIPT_DIR/launchd/$label.plist.template"
+    local dest_dir="$TARGET_HOME/Library/LaunchAgents"
+    local dest_plist="$dest_dir/$label.plist"
+    local script_path="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
+    local prog="/bin/bash"
+
+    if [[ ! -f "$template" ]]; then
+        warn "Template not found: $template"
+        return 1
+    fi
+
+    mkdir -p "$dest_dir"
+    sed -e "s|__HOME__|$TARGET_HOME|g" \
+        -e "s|__SCRIPT__|$script_path|g" \
+        -e "s|__PROG__|$prog|g" \
+        "$template" > "$dest_plist"
+
+    # Idempotent re-install: unload any previously-installed job with this
+    # label first, then load the freshly-written plist. Without the unload,
+    # a second `--install-launchd` run would not duplicate the job (launchctl
+    # bootstrap refuses an already-loaded label), but unloading first keeps
+    # the running job's in-memory definition in sync with what's on disk.
+    launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$dest_plist"
+
+    success "Installed launchd job '$label'"
+    echo "  plist   : $dest_plist"
+    echo "  script  : $script_path --apply"
+    echo "  schedule: daily at 03:00"
+    echo "  logs    : $TARGET_HOME/logs/htotheizzo-exclude-vendor.{out,err}.log"
+}
+
+if [[ "$MODE" == "install-launchd" ]]; then
+    install_launchd
+    exit $?
+fi
 
 # ── size helpers (small local versions of estimate.sh's dir_size/human) ──────
 dir_size_bytes() {
