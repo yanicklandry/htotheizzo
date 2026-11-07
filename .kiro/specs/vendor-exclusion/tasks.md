@@ -85,7 +85,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 5.4_
   - _Depends: 2.1, 2.2, 3.1_
 
-- [ ] 4.2 Validate antares-absent fallback end to end across all three antares-dependent scripts
+- [x] 4.2 Validate antares-absent fallback end to end across all three antares-dependent scripts
   - With the antares repo path and `$ANTARES_HOME` pointed at an empty/missing location, run `exclude-vendor.sh`, `estimate.sh`, and `setup.sh` and confirm each degrades per its documented fallback (the first two log the fallback notice and use the hardcoded list; `setup.sh` silently keeps its current `EXCLUDES` array) rather than failing
   - Observable completion: all three scripts exit successfully, with output matching the documented fallback behavior for each
   - _Requirements: 1.6, 5.3_
