@@ -78,7 +78,7 @@
   - _Depends: 1.2_
 
 - [ ] 4. Validation: cross-script end-to-end checks
-- [ ] 4.1 Validate full antares-present sweep end to end
+- [x] 4.1 Validate full antares-present sweep end to end
   - Run `exclude-vendor.sh --dry-run` then `--apply` against a real antares-tracked dev folder subtree, cross-checking the total against `estimate.sh`'s vendor/build row and spot-checking matched paths with `tmutil isexcluded`
   - Confirm a second consecutive `--apply` run is a no-op
   - Observable completion: a documented run transcript shows the dry-run total matching both the apply-mode excluded total and `estimate.sh`'s row, zero new exclusions on rerun, and `tmutil isexcluded` confirming each matched path
