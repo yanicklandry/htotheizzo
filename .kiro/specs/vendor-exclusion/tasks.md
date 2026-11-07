@@ -59,7 +59,7 @@
   - _Boundary: estimate.sh_
   - _Depends: 1.1, 1.2_
 
-- [ ] 3.2 (P) Gate setup.sh's antares-sourced exclusions behind a pure-cache allow-list
+- [x] 3.2 (P) Gate setup.sh's antares-sourced exclusions behind a pure-cache allow-list
   - Add a `PURE_CACHE_ROW_NAMES` allow-list and call `read_dev_folders` with the already-resolved `USER_HOME` (the existing `sudo`-aware resolution), never with raw `$HOME`
   - Only allow-listed row names' resolved paths are merged (deduplicated against existing entries) into the existing `EXCLUDES` array before the existing exclusion loop runs
   - Antares-absent behavior leaves `EXCLUDES` exactly as it is today — no additions, no error
