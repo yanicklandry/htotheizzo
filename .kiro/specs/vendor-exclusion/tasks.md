@@ -25,7 +25,7 @@
   - _Depends: 1.1, 1.2_
 
 - [ ] 2. Core: exclude-vendor.sh sweep script
-- [ ] 2.1 Implement dry-run sweep (default mode)
+- [x] 2.1 Implement dry-run sweep (default mode)
   - CLI parses `--dry-run` (default), `--apply`, and `--help`; an unrecognized flag prints usage and exits non-zero
   - Calls `read_dev_folders` then `find_vendor_matches` per returned folder, skipping any folder path that doesn't exist on disk
   - Prints the full match list and total bytes; performs no `tmutil` mutation while in dry-run
