@@ -8,7 +8,7 @@
   - Observable completion: running the function against a temp fixture with two TSVs produces deduped name/path rows on stdout; with no fixture present, it produces the fallback notice on stderr plus the fallback row on stdout
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 7.1_
 
-- [ ] 1.2 (P) Implement vendor-directory matching library (lib/vendor-dirs.sh)
+- [x] 1.2 (P) Implement vendor-directory matching library (lib/vendor-dirs.sh)
   - Canonical list of the 8 vendor/build directory names (`node_modules`, `.venv`, `venv`, `target`, `dist`, `build`, `.next`, `__pycache__`)
   - `find_vendor_matches`: walks a given root, prunes at the first match (no descending into a matched directory), excludes anything under a `.git` directory, never returns the scanned root itself
   - `is_vendor_dir_path`: name-based check sharing the same canonical list, for callers that filter a path list rather than walk a root
