@@ -1,6 +1,6 @@
 # Implementation Plan: vendor-exclusion
 
-- [ ] 1. Foundation: shared libraries for antares folder discovery and vendor directory matching
+- [x] 1. Foundation: shared libraries for antares folder discovery and vendor directory matching
 - [x] 1.1 Implement antares folder-discovery library (lib/antares-folders.sh)
   - `read_dev_folders` core logic: parse both TSVs, filter to `category=dev`, dedup with curated rows winning on name collision, expand `~/` and `$TMPDIR/` path prefixes literally (never `eval`)
   - Fallback path: when neither TSV is readable, logs a fallback notice to stderr and returns a hardcoded fallback folder list instead of failing
@@ -24,7 +24,7 @@
   - _Requirements: 1.1, 1.2, 1.4, 1.5, 1.6, 2.1, 2.2, 2.3, 2.4_
   - _Depends: 1.1, 1.2_
 
-- [ ] 2. Core: exclude-vendor.sh sweep script
+- [x] 2. Core: exclude-vendor.sh sweep script
 - [x] 2.1 Implement dry-run sweep (default mode)
   - CLI parses `--dry-run` (default), `--apply`, and `--help`; an unrecognized flag prints usage and exits non-zero
   - Calls `read_dev_folders` then `find_vendor_matches` per returned folder, skipping any folder path that doesn't exist on disk
@@ -49,7 +49,7 @@
   - _Requirements: 4.1, 4.2_
   - _Depends: 2.1, 2.2_
 
-- [ ] 3. Integration: align estimate.sh, setup.sh, and git-check.sh with the shared vendor-dir match list
+- [x] 3. Integration: align estimate.sh, setup.sh, and git-check.sh with the shared vendor-dir match list
 - [x] 3.1 (P) Source estimate.sh's dev-folder sizing from the shared libraries
   - Replace the unbounded `$HOME`-wide `node_modules` find with `find_vendor_matches` over `read_dev_folders`' output for the "Excluded: caches and build tools" row
   - Replace the hardcoded `DEV_DIRS` array with `read_dev_folders`' output for the "Developer folder" breakdown section; `GENERATED_PATTERNS` and every other row/section are unchanged
@@ -77,7 +77,7 @@
   - _Boundary: git-check.sh_
   - _Depends: 1.2_
 
-- [ ] 4. Validation: cross-script end-to-end checks
+- [x] 4. Validation: cross-script end-to-end checks
 - [x] 4.1 Validate full antares-present sweep end to end
   - Run `exclude-vendor.sh --dry-run` then `--apply` against a real antares-tracked dev folder subtree, cross-checking the total against `estimate.sh`'s vendor/build row and spot-checking matched paths with `tmutil isexcluded`
   - Confirm a second consecutive `--apply` run is a no-op
