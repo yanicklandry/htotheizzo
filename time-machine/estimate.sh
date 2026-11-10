@@ -4,6 +4,12 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/antares-folders.sh
+source "$SCRIPT_DIR/lib/antares-folders.sh"
+# shellcheck source=lib/vendor-dirs.sh
+source "$SCRIPT_DIR/lib/vendor-dirs.sh"
+
 BOLD=$'\033[1m'; CYAN=$'\033[0;36m'; GREEN=$'\033[0;32m'
 YELLOW=$'\033[1;33m'; RED=$'\033[0;31m'; DIM=$'\033[2m'; NC=$'\033[0m'
 
@@ -61,13 +67,23 @@ for path in "${EXCLUSIONS[@]}"; do
     fi
 done
 
+# Folder list sourced once from antares (category=dev rows, with its own
+# antares-absent fallback) and reused below for the "Developer folder"
+# breakdown too, so antares/the fallback is only consulted a single time.
+DEV_FOLDERS_TSV="$(read_dev_folders "$HOME")"
+
 NM_TOTAL=0
-while IFS= read -r nm; do
-    sz=$(dir_size "$nm")
-    NM_TOTAL=$(( NM_TOTAL + sz ))
-done < <(find "$HOME" -maxdepth 4 -type d -name node_modules -prune 2>/dev/null)
+while IFS=$'\t' read -r dev_name dev_path; do
+    [[ -z "${dev_name:-}" ]] && continue
+    [[ -e "$dev_path" ]] || continue
+    while IFS= read -r match; do
+        [[ -z "$match" ]] && continue
+        sz=$(dir_size "$match")
+        NM_TOTAL=$(( NM_TOTAL + sz ))
+    done < <(find_vendor_matches "$dev_path")
+done <<< "$DEV_FOLDERS_TSV"
 if (( NM_TOTAL > 0 )); then
-    row "node_modules/ (all found under ~)" "$(human $NM_TOTAL)"
+    row "vendor/build dirs (via antares dev folders)" "$(human $NM_TOTAL)"
     TOTAL_EXCL=$(( TOTAL_EXCL + NM_TOTAL ))
 fi
 
@@ -144,7 +160,11 @@ row "  Total Application Support kept" "$(human $APPSUP_KEEP)"
 # ── 4. Developer: gitignore-aware scan ───────────────────────────────────────
 header "Developer folder: gitignore-aware breakdown"
 
-DEV_DIRS=( "$HOME/Developer" "$HOME/Projects" "$HOME/Sites" )
+DEV_DIRS=()
+while IFS=$'\t' read -r dev_name dev_path; do
+    [[ -z "${dev_name:-}" ]] && continue
+    DEV_DIRS+=( "$dev_path" )
+done <<< "$DEV_FOLDERS_TSV"
 DEV_GITIGNORE_EXCL=0
 DEV_TOTAL=0
 

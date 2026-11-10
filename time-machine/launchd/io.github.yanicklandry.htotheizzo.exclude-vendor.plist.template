@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Template. exclude-vendor.sh --install-launchd substitutes __HOME__,
+     __SCRIPT__ and __PROG__ and copies the result to
+     ~/Library/LaunchAgents/ before loading it with launchctl.
+     __PROG__ is /bin/bash - no Full-Disk-Access launcher is needed, since
+     this script never requires sudo and only touches per-user Time Machine
+     exclusion state. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>io.github.yanicklandry.htotheizzo.exclude-vendor</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PROG__</string>
+    <string>__SCRIPT__</string>
+    <string>--apply</string>
+  </array>
+
+  <!-- Daily at 03:00 - a quiet, low-traffic hour for a sweep that walks
+       antares-tracked dev folders and applies Time Machine exclusions. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>3</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/logs/htotheizzo-exclude-vendor.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/logs/htotheizzo-exclude-vendor.err.log</string>
+</dict>
+</plist>

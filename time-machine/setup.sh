@@ -4,7 +4,34 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/antares-folders.sh
+source "$SCRIPT_DIR/lib/antares-folders.sh"
+
 BACKUP_VOLUME="/Volumes/Backup"
+
+# Explicit allow-list of antares category=dev row NAMES known to be pure
+# caches (safe to wholesale-exclude from Time Machine). This is a positive
+# allow-list, not a denylist: any row name NOT in this list is skipped,
+# including mixed project-root trees like `developer` (-> ~/Developer) or
+# `code` (-> ~/code), even though antares tags both `category=dev`.
+# Excluding either of those wholesale would silently stop backing up real
+# source code - never add them here. When in doubt about a row's safety,
+# leave it out (fails safe: misses a new cache, never over-excludes). See
+# research.md "setup.sh exclusion scope (Requirement 5.2)".
+PURE_CACHE_ROW_NAMES=(
+    npm-cache
+    uv-cache
+    pnpm-store
+    homebrew-cache
+    xcode-derived
+    nvm
+    dotlocal
+    coresimulator
+    docker
+    ms-playwright
+    gradle
+)
 
 # ── colours ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -71,6 +98,35 @@ EXCLUDES=(
     "$USER_HOME/Library/Application Support/Thunderbird"
     "$USER_HOME/Library/Application Support/hey"
 )
+
+# ── antares-sourced pure-cache additions (allow-list gated) ────────────────
+# Merge in any antares category=dev row whose name is on PURE_CACHE_ROW_NAMES.
+# Everything else - including mixed-tree rows like `developer`/`code`, and
+# read_dev_folders' own antares-absent fallback row (a raw "$HOME/Developer"
+# path, itself a mixed tree) - is filtered out by the same name check, so
+# antares-absent runs leave EXCLUDES untouched.
+is_pure_cache_row_name() {
+    local candidate="$1" allowed
+    for allowed in "${PURE_CACHE_ROW_NAMES[@]}"; do
+        [[ "$candidate" == "$allowed" ]] && return 0
+    done
+    return 1
+}
+
+path_in_excludes() {
+    local candidate="$1" existing
+    for existing in "${EXCLUDES[@]}"; do
+        [[ "$candidate" == "$existing" ]] && return 0
+    done
+    return 1
+}
+
+while IFS=$'\t' read -r dev_row_name dev_row_path; do
+    [[ -z "$dev_row_name" ]] && continue
+    is_pure_cache_row_name "$dev_row_name" || continue
+    path_in_excludes "$dev_row_path" && continue
+    EXCLUDES+=("$dev_row_path")
+done < <(read_dev_folders "$USER_HOME")
 
 info "Adding exclusions ..."
 found=0
