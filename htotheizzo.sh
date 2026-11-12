@@ -788,6 +788,21 @@ update_gsd() {
     || log "Warning: GSD update failed"
 }
 
+update_claude() {
+  # Update the Claude Code CLI itself
+  if [[ -n "${skip_claude:-}" ]]; then
+    log "Skipped claude"
+    return 0
+  fi
+
+  if ! command -v claude &>/dev/null; then
+    return 0
+  fi
+
+  log "Updating Claude Code CLI..."
+  claude update || log "Warning: claude update failed"
+}
+
 update_homebrew() {
   local with_casks="${1:-false}"
 
@@ -1330,6 +1345,7 @@ update() {
   fi
 
   update_vscode_ext
+  update_claude
   update_gsd
 
   if ! _only_mode_active; then progress "Updating shell and dev tools"; fi
