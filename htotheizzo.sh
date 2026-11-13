@@ -1805,7 +1805,18 @@ update() {
       uv self update || log "Warning: uv self update failed"
     fi
     progress "Cleaning uv cache"
-    uv cache clean || log "Warning: uv cache clean failed"
+    # uv waits up to 300s for the cache lock while another uv process (e.g. a uvx
+    # MCP server) is running. Give up after 1s and skip instead of blocking the run.
+    local uv_clean_out
+    if ! uv_clean_out=$(UV_LOCK_TIMEOUT=1 uv cache clean 2>&1); then
+      if [[ "$uv_clean_out" == *"waiting for lock"* ]]; then
+        log "Skipping uv cache clean: cache is in use by another uv process"
+      else
+        log "Warning: uv cache clean failed: $uv_clean_out"
+      fi
+    else
+      [[ -n "$uv_clean_out" ]] && log "$uv_clean_out"
+    fi
   fi
 
   # pixi (Fast multi-language package manager built on conda ecosystem)
