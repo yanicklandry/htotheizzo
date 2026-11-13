@@ -877,13 +877,42 @@ update_claude() {
     log "Skipped claude"
     return 0
   fi
+  _only_mode_active && [[ -z "${only_claude:-}" ]] && return 0
 
-  if ! command -v claude &>/dev/null; then
+  # The native installer puts claude in ~/.local/bin, which is often missing
+  # from PATH under cron or the GUI. Fall back to known install locations.
+  local claude_bin
+  claude_bin=$(command -v claude 2>/dev/null || true)
+  if [[ -z "$claude_bin" ]]; then
+    local candidate
+    for candidate in "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" \
+                     /opt/homebrew/bin/claude /usr/local/bin/claude; do
+      if [[ -x "$candidate" ]]; then
+        claude_bin="$candidate"
+        break
+      fi
+    done
+  fi
+
+  if [[ -z "$claude_bin" ]]; then
+    log "Claude Code CLI not found, skipping claude update"
     return 0
   fi
 
-  log "Updating Claude Code CLI..."
-  claude update || log "Warning: claude update failed"
+  log "Updating Claude Code CLI ($claude_bin)..."
+  if [[ -n "$MOCK_MODE" ]]; then
+    log "[MOCK] $claude_bin update"
+    return 0
+  fi
+
+  # Run from $HOME (not inside a project folder) and record the output in the log
+  local output status=0 line
+  output=$(cd "$HOME" && "$claude_bin" update 2>&1) || status=$?
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && log "  $line"
+  done <<< "$output"
+  [[ $status -ne 0 ]] && log "Warning: claude update failed (exit $status)"
+  return 0
 }
 
 update_homebrew() {
