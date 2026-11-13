@@ -829,6 +829,8 @@ install_launchd_agent() {
     <key>Minute</key>
     <integer>$minute</integer>
   </dict>
+  <key>WorkingDirectory</key>
+  <string>$HOME</string>
   <key>StandardInPath</key>
   <string>/dev/null</string>
   <key>StandardOutPath</key>
@@ -887,7 +889,7 @@ show_status() {
   echo "launchd agent ($LAUNCHD_LABEL):"
   if [[ -f "$LAUNCHD_PLIST" ]]; then
     launchctl print "gui/$(id -u)/$LAUNCHD_LABEL" 2>/dev/null \
-      | grep -E '^[[:space:]]*(state|runs|last exit code|pid) =' | sed 's/^[[:space:]]*/  /' \
+      | grep -E $'^\t(state|runs|last exit code|pid) =' | sed 's/^[[:space:]]*/  /' \
       || echo "  plist exists but agent is not loaded (run --install-launchd)"
   else
     echo "  not installed (run --install-launchd)"
@@ -2262,9 +2264,6 @@ update() {
     sudo gem cleanup || log "Warning: gem cleanup failed"
   fi
 
-  if [[ -d tmp ]]; then
-    rm -rf tmp
-  fi
 
   # Post-update checks
   if ! _only_mode_active; then
