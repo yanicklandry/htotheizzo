@@ -8,6 +8,13 @@ export DEBIAN_FRONTEND=noninteractive
 export HOMEBREW_CLEANUP_MAX_AGE_DAYS=30   # default is 120
 
 THISUSER=$(who am i | awk '{print $1}')
+# `who am i` prints nothing without a terminal (launchd, cron, GUI)
+THISUSER="${THISUSER:-$(id -un)}"
+
+# Unattended mode (--unattended, used by the launchd agent): never prompt.
+# Steps that need sudo are skipped unless credentials are already available.
+UNATTENDED="${UNATTENDED:-}"
+SUDO_SKIPPED_COUNT=0
 
 # Mock mode - if set, commands will be logged but not executed
 MOCK_MODE="${MOCK_MODE:-}"
@@ -119,7 +126,11 @@ help() {
   echo "  --help, -h          Show this help message"
   echo "  --mock, --dry-run   Run in mock mode (no actual operations)"
   echo "  --verbose, -v       Stream full package manager output live"
-  echo "  --install-cron      Install htotheizzo as a cron job"
+  echo "  --install-cron      Show how to install htotheizzo as a cron job"
+  echo "  --install-launchd   Run daily via a launchd agent (macOS; catches up after sleep)"
+  echo "  --uninstall-launchd Remove the launchd agent"
+  echo "  --status            Show the launchd agent state and recent runs"
+  echo "  --unattended        Never prompt; skip steps that need sudo (used by the agent)"
   echo "  --create-snapshot   Create system snapshot before updates"
   echo ""
   echo "Environment Variables:"
@@ -128,6 +139,7 @@ help() {
   echo "  Examples: skip_brew=1  skip_sparkle=1  only_sparkle=1  only_brew=1 only_npm=1"
   echo "  force_weekly_cache_clean=1   Run the weekly Python/JS cache clean now"
   echo "  WEEKLY_CACHE_CLEAN_DAYS=N    Days between weekly cache cleans (default 7)"
+  echo "  HTOTHEIZZO_HOUR=H HTOTHEIZZO_MINUTE=M   Daily time for --install-launchd (default 02:00)"
   echo ""
   echo "Features:"
   echo "  - Updates 60+ package managers and tools"
@@ -769,7 +781,146 @@ install_cron_job() {
   log "3. Save and exit"
   log ""
   log "To verify: crontab -l"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    log ""
+    log "On macOS, prefer --install-launchd: cron has no access to your shell PATH"
+    log "and skips runs while the Mac is asleep."
+  fi
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+# launchd agent (macOS). Runs the script daily through a login+interactive zsh
+# so it sees the same PATH/nvm/pyenv setup as a manual run from the terminal.
+LAUNCHD_LABEL="com.htotheizzo.daily"
+LAUNCHD_PLIST="$HOME/Library/LaunchAgents/$LAUNCHD_LABEL.plist"
+LAUNCHD_OUT_LOG="$HOME/logs/htotheizzo.launchd.log"
+
+install_launchd_agent() {
+  if [[ "$OSTYPE" != "darwin"* ]]; then
+    log "Error: --install-launchd is macOS only (use --install-cron on Linux)"
+    return 1
+  fi
+  local script_path hour="${HTOTHEIZZO_HOUR:-2}" minute="${HTOTHEIZZO_MINUTE:-0}" domain
+  script_path=$(realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")
+  domain="gui/$(id -u)"
+  if [[ ! "$hour" =~ ^[0-9]+$ || "$hour" -gt 23 || ! "$minute" =~ ^[0-9]+$ || "$minute" -gt 59 ]]; then
+    log "Error: HTOTHEIZZO_HOUR must be 0-23 and HTOTHEIZZO_MINUTE 0-59"
+    return 1
+  fi
+
+  mkdir -p "$HOME/Library/LaunchAgents" "$HOME/logs"
+  cat > "$LAUNCHD_PLIST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$LAUNCHD_LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lic</string>
+    <string>exec '$script_path' --unattended</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>$hour</integer>
+    <key>Minute</key>
+    <integer>$minute</integer>
+  </dict>
+  <key>StandardInPath</key>
+  <string>/dev/null</string>
+  <key>StandardOutPath</key>
+  <string>$LAUNCHD_OUT_LOG</string>
+  <key>StandardErrorPath</key>
+  <string>$LAUNCHD_OUT_LOG</string>
+  <key>Nice</key>
+  <integer>10</integer>
+  <key>LowPriorityIO</key>
+  <true/>
+</dict>
+</plist>
+EOF
+  if ! plutil -lint "$LAUNCHD_PLIST" >/dev/null; then
+    log "Error: generated plist is invalid: $LAUNCHD_PLIST"
+    return 1
+  fi
+
+  # Reload if already installed
+  launchctl bootout "$domain/$LAUNCHD_LABEL" 2>/dev/null || true
+  if ! launchctl bootstrap "$domain" "$LAUNCHD_PLIST"; then
+    log "Error: launchctl bootstrap failed for $LAUNCHD_PLIST"
+    return 1
+  fi
+  log "Installed launchd agent $LAUNCHD_LABEL: runs daily at $(printf '%02d:%02d' "$hour" "$minute")"
+  log "  (if the Mac is asleep then, it runs on wake)"
+  log "  Script: $script_path --unattended"
+  log "  Run log: $HOME/logs/htotheizzo.log, raw output: $LAUNCHD_OUT_LOG"
+  log "  Run it now: launchctl kickstart $domain/$LAUNCHD_LABEL"
+  log "  Check it:   htotheizzo.sh --status"
+  if crontab -l 2>/dev/null | grep -q htotheizzo; then
+    log "Note: a cron entry for htotheizzo still exists; remove it with 'crontab -e' to avoid double runs"
+  fi
+}
+
+# The launchd output file is appended to on every run and not rotated by
+# rotate_logs; truncate it once it passes 5 MB. launchd opens it in append
+# mode, so truncating while this run writes to it is safe.
+_trim_launchd_log() {
+  [[ -f "$LAUNCHD_OUT_LOG" ]] || return 0
+  local size
+  size=$(stat -f %z "$LAUNCHD_OUT_LOG" 2>/dev/null || stat -c %s "$LAUNCHD_OUT_LOG" 2>/dev/null || echo 0)
+  if (( size > 5 * 1024 * 1024 )); then
+    : > "$LAUNCHD_OUT_LOG"
+    log "Truncated $LAUNCHD_OUT_LOG (was over 5 MB)"
+  fi
+}
+
+uninstall_launchd_agent() {
+  launchctl bootout "gui/$(id -u)/$LAUNCHD_LABEL" 2>/dev/null || true
+  rm -f "$LAUNCHD_PLIST"
+  log "Removed launchd agent $LAUNCHD_LABEL"
+}
+
+show_status() {
+  echo "launchd agent ($LAUNCHD_LABEL):"
+  if [[ -f "$LAUNCHD_PLIST" ]]; then
+    launchctl print "gui/$(id -u)/$LAUNCHD_LABEL" 2>/dev/null \
+      | grep -E '^[[:space:]]*(state|runs|last exit code|pid) =' | sed 's/^[[:space:]]*/  /' \
+      || echo "  plist exists but agent is not loaded (run --install-launchd)"
+  else
+    echo "  not installed (run --install-launchd)"
+  fi
+  echo ""
+  echo "Weekly Python/JS cache clean:"
+  if [[ -f "$WEEKLY_CACHE_STAMP" ]] && [[ "$(cat "$WEEKLY_CACHE_STAMP")" =~ ^[0-9]+$ ]]; then
+    echo "  last: $(date -r "$(cat "$WEEKLY_CACHE_STAMP")" '+%Y-%m-%d %H:%M')"
+  else
+    echo "  never recorded"
+  fi
+  echo ""
+  echo "Recent runs (newest first):"
+  # Every grep here may legitimately match nothing; keep set -e/pipefail from
+  # ending the report early.
+  local f first last skipped
+  for f in "$HOME/logs/htotheizzo.log" "$HOME/logs/htotheizzo.log".{1..5}; do
+    [[ -s "$f" ]] || continue
+    first=$(head -1 "$f" | grep -oE '^\[[0-9-]+ [0-9:]+\]' || true)
+    if grep -q "Authentication failed" "$f"; then
+      last="FAILED: authentication"
+    elif grep -q "htotheizzo is complete" "$f"; then
+      last="completed"
+      if grep -q "Unattended run" "$f"; then last="$last (unattended)"; fi
+      skipped=$(grep -oE '[0-9]+ step\(s\) needing sudo were skipped' "$f" | head -1 || true)
+      [[ -n "$skipped" ]] && last="$last, $skipped"
+      if grep -q "Weekly cache clean recorded" "$f"; then last="$last, weekly cache clean"; fi
+    else
+      last="incomplete or still running"
+    fi
+    echo "  $first $last"
+  done
+  return 0
 }
 
 create_system_snapshot() {
@@ -1352,6 +1503,21 @@ update() {
   # Skip in mock mode or when SKIP_SUDO=1 (non-interactive test environments)
   if [[ -n "${MOCK_MODE:-}" || -n "${SKIP_SUDO:-}" ]]; then
     log "Mock mode: Skipping sudo authentication"
+  elif [[ -n "$UNATTENDED" ]]; then
+    _trim_launchd_log
+    if sudo -n true 2>/dev/null; then
+      log "Unattended run: sudo available without a prompt"
+      keep_sudo_alive
+    else
+      log "Unattended run: no sudo credentials; steps that need sudo will be skipped"
+      # Shadow sudo for the rest of the run: log and skip instead of prompting
+      # (there is no terminal to prompt on) or failing every sudo step.
+      sudo() {
+        SUDO_SKIPPED_COUNT=$((SUDO_SKIPPED_COUNT + 1))
+        log "Skipped (needs sudo): sudo $*"
+        return 0
+      }
+    fi
   else
     echo "Requesting administrator privileges..."
     if ! sudo -v; then
@@ -2107,6 +2273,10 @@ update() {
 
   mark_weekly_cache_clean_done
 
+  if (( SUDO_SKIPPED_COUNT > 0 )); then
+    log "Note: $SUDO_SKIPPED_COUNT step(s) needing sudo were skipped; run htotheizzo manually to do them"
+  fi
+
   log "htotheizzo is complete, you got 99 problems but updates ain't one"
 
   # Show error summary
@@ -2138,6 +2308,22 @@ main() {
       --install-cron)
         install_cron_job
         exit 0
+        ;;
+      --install-launchd)
+        install_launchd_agent
+        exit $?
+        ;;
+      --uninstall-launchd)
+        uninstall_launchd_agent
+        exit 0
+        ;;
+      --status)
+        show_status
+        exit 0
+        ;;
+      --unattended)
+        export UNATTENDED=1
+        shift
         ;;
       --create-snapshot)
         export CREATE_SNAPSHOT=1
