@@ -463,17 +463,9 @@ clean_browser_caches() {
 
   if [[ -d "$firefox_cache" ]]; then
     log "Cleaning Firefox cache..."
-    local before_size
-    before_size=$(du -sh "$firefox_cache" 2>/dev/null | cut -f1 || echo "unknown")
-
-    # Use timeout to prevent hanging (5 minutes max)
-    if command -v gtimeout >/dev/null 2>&1; then
-      gtimeout 300 find "$firefox_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "cache2" -type d \) -exec rm -rf {} + 2>/dev/null || log "Warning: Firefox cache cleanup timed out or failed"
-    elif command -v timeout >/dev/null 2>&1; then
-      timeout 300 find "$firefox_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "cache2" -type d \) -exec rm -rf {} + 2>/dev/null || log "Warning: Firefox cache cleanup timed out or failed"
-    else
-      find "$firefox_cache" \( -name "*.tmp" -o -name "*.cache" \) -type f -delete 2>/dev/null || log "Warning: Firefox cache cleanup failed"
-    fi
+    # 5 minutes max. -prune: don't walk into a cache2 dir that rm -rf removes anyway.
+    _run_cleanup "Firefox cache cleanup" 300 \
+      find "$firefox_cache" \( -name "*.tmp" -o -name "*.cache" -o \( -name "cache2" -type d -prune \) \) -exec rm -rf {} +
 
     cleaned_browsers+=("Firefox")
   fi
@@ -488,14 +480,10 @@ clean_browser_caches() {
   if [[ -d "$chrome_cache" ]]; then
     log "Cleaning Chrome cache..."
 
-    # Clean cache files only
-    if command -v gtimeout >/dev/null 2>&1; then
-      gtimeout 300 find "$chrome_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "Cache" -type d \) -exec rm -rf {} + 2>/dev/null || log "Warning: Chrome cache cleanup timed out or failed"
-    elif command -v timeout >/dev/null 2>&1; then
-      timeout 300 find "$chrome_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "Cache" -type d \) -exec rm -rf {} + 2>/dev/null || log "Warning: Chrome cache cleanup timed out or failed"
-    else
-      find "$chrome_cache" \( -name "*.tmp" -o -name "*.cache" \) -type f -delete 2>/dev/null || log "Warning: Chrome cache cleanup failed"
-    fi
+    # Clean cache files only. -prune: don't walk into a Cache dir that rm -rf
+    # removes anyway (a running Chrome churns files in it mid-walk).
+    _run_cleanup "Chrome cache cleanup" 300 \
+      find "$chrome_cache" \( -name "*.tmp" -o -name "*.cache" -o \( -name "Cache" -type d -prune \) \) -exec rm -rf {} +
 
     cleaned_browsers+=("Chrome")
   fi
@@ -507,11 +495,9 @@ clean_browser_caches() {
     if [[ -d "$safari_cache" ]]; then
       log "Cleaning Safari cache..."
 
-      if command -v gtimeout >/dev/null 2>&1; then
-        gtimeout 300 find "$safari_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "Cache.db"* \) -exec rm -f {} + 2>/dev/null || log "Warning: Safari cache cleanup timed out or failed"
-      else
-        find "$safari_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "Cache.db*" \) -exec rm -f {} + 2>/dev/null || true  # some files may be locked by Safari
-      fi
+      # Safari's cache is TCC-protected: background runs get "Operation not permitted"
+      _run_cleanup "Safari cache cleanup" 300 \
+        find "$safari_cache" \( -name "*.tmp" -o -name "*.cache" -o -name "Cache.db*" \) -exec rm -f {} +
 
       cleaned_browsers+=("Safari")
     fi
@@ -524,10 +510,83 @@ clean_browser_caches() {
   fi
 }
 
-# Print the human-readable size of a path, or "0" if it does not exist
+# Print the human-readable size of a path, or "0" if it does not exist.
+# du exits 1 when some subfolders can't be read (e.g. TCC-protected folders
+# under the launchd agent) but still prints the total, so keep that total
+# instead of reporting "unknown".
 _path_size() {
   [[ -e "$1" ]] || { echo "0"; return 0; }
-  du -sh "$1" 2>/dev/null | cut -f1 || echo "unknown"
+  local out
+  out=$(du -sh "$1" 2>/dev/null) || true
+  out="${out%%$'\t'*}"
+  out="${out#"${out%%[![:space:]]*}"}"   # macOS du left-pads the size
+  echo "${out:-unknown}"
+}
+
+# Run a cleanup command under a time limit and report what really happened.
+# Instead of one "timed out or failed" warning, this tells apart:
+#   - a real timeout (exit 124)
+#   - folders macOS won't let this process open ("Operation not permitted",
+#     normal for ~/Library/Caches under the launchd agent: TCC). Logged as
+#     info, not a warning: there is nothing to fix without Full Disk Access.
+#   - files that vanished mid-walk (app still running and churning its cache)
+#   - any other error, logged with its first lines of stderr
+# Always returns 0; problems are reported via log.
+# Usage: _run_cleanup <label> <seconds> <command> [args...]
+_run_cleanup() {
+  local label="$1" limit="$2"
+  shift 2
+  local errfile rc=0
+  errfile=$(mktemp "${TMPDIR:-/tmp}/htotheizzo-cleanup.XXXXXX") || errfile=/dev/null
+
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$limit" "$@" 2>"$errfile" || rc=$?
+  elif command -v timeout >/dev/null 2>&1; then
+    timeout "$limit" "$@" 2>"$errfile" || rc=$?
+  else
+    "$@" 2>"$errfile" &
+    local pid=$! elapsed=0
+    while kill -0 "$pid" 2>/dev/null && (( elapsed < limit )); do
+      sleep 1
+      elapsed=$((elapsed + 1))
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      rc=124
+    else
+      wait "$pid" || rc=$?
+    fi
+  fi
+
+  if (( rc == 124 )); then
+    log "Warning: $label timed out after ${limit}s"
+  elif (( rc != 0 )); then
+    local benign='Operation not permitted|Permission denied|No such file or directory'
+    local denied vanished other names=""
+    denied=$(grep -cE 'Operation not permitted|Permission denied' "$errfile" || true)
+    vanished=$(grep -c 'No such file or directory' "$errfile" || true)
+    other=$(grep -vE "$benign" "$errfile" | head -3 | tr '\n' ';' || true)
+
+    if [[ -n "$other" ]]; then
+      log "Warning: $label failed (exit $rc): ${other%;}"
+    elif (( denied == 0 && vanished == 0 )); then
+      log "Warning: $label failed (exit $rc)"
+    fi
+    if (( denied > 0 )); then
+      local path
+      while IFS= read -r path; do
+        names+="${names:+, }${path##*/}"
+      done < <(sed -nE 's/^[^:]+: (.*): (Operation not permitted|Permission denied)$/\1/p' "$errfile" | head -3)
+      log "$label: skipped $denied protected item(s) macOS won't let this process open${names:+ ($names...)}"
+    fi
+    if (( vanished > 0 )); then
+      log "$label: $vanished file(s) vanished during cleanup (app still running?)"
+    fi
+  fi
+
+  [[ "$errfile" == /dev/null ]] || rm -f "$errfile"
+  return 0
 }
 
 # True if a tool is installed and not disabled via skip_<tool>. Unlike
@@ -1265,37 +1324,13 @@ mac_disk_maintenance() {
   # Clear user caches
   log "Clearing user caches..."
   if [[ -d ~/Library/Caches ]]; then
-    local cache_size
-    if ! cache_size=$(du -sh ~/Library/Caches 2>/dev/null | cut -f1); then
-      cache_size="unknown"
-    fi
-    log "User cache size: $cache_size"
-    # More selective cache cleanup - only clear specific safe directories
-    # Combine find operations into one command for better performance
+    log "User cache size: $(_path_size ~/Library/Caches)"
+    # Only delete loose temp/cache/log files near the top of each app's cache.
+    # 30s max. Under the launchd agent ~14 TCC-protected subfolders (Safari,
+    # Music, CloudKit...) are unreadable; _run_cleanup reports that as info.
     log "Removing temporary cache files (this may take a while for large caches)..."
-    # Use timeout to prevent indefinite hanging (max 30 seconds)
-    if command -v gtimeout >/dev/null 2>&1; then
-      gtimeout 30 find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
-    elif command -v timeout >/dev/null 2>&1; then
-      timeout 30 find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null || log "Warning: cache cleanup timed out or failed"
-    else
-      # Fallback without timeout - use background process with manual timeout
-      find ~/Library/Caches -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete 2>/dev/null &
-      local find_pid=$!
-      local elapsed=0
-      while kill -0 $find_pid 2>/dev/null && [ $elapsed -lt 30 ]; do
-        sleep 5
-        elapsed=$((elapsed + 5))
-        if [ $((elapsed % 30)) -eq 0 ]; then
-          log "Still cleaning caches... (${elapsed}s elapsed)"
-        fi
-      done
-      if kill -0 $find_pid 2>/dev/null; then
-        log "Warning: cache cleanup taking too long, killing process"
-        kill $find_pid 2>/dev/null || true
-      fi
-      wait $find_pid 2>/dev/null || true  # non-zero exit is expected when some locked files can't be deleted
-    fi
+    _run_cleanup "User cache cleanup" 30 \
+      find "$HOME/Library/Caches" -maxdepth 3 \( -name "*.tmp" -o -name "*.cache" -o -name "*.log" \) -type f -delete
     log "Cache cleanup completed"
   fi
 }
