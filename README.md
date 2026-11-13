@@ -232,7 +232,29 @@ bash time-machine/git-check.sh ~/Documents
 
 ---
 
+## Automated Daily Runs with launchd (macOS, recommended)
+
+```bash
+htotheizzo.sh --install-launchd     # daily at 02:00
+HTOTHEIZZO_HOUR=7 HTOTHEIZZO_MINUTE=30 htotheizzo.sh --install-launchd   # another time
+htotheizzo.sh --status              # agent state, last weekly cache clean, recent runs
+launchctl kickstart gui/$(id -u)/com.htotheizzo.daily   # run it now
+htotheizzo.sh --uninstall-launchd
+```
+
+This installs `~/Library/LaunchAgents/com.htotheizzo.daily.plist`. Compared with cron:
+
+- **Catches up after sleep:** if the Mac is asleep at the scheduled time, the run happens on wake (cron just skips it).
+- **Same environment as a manual run:** it runs `zsh -lic`, so brew, nvm, pyenv, uv, etc. are found exactly as in your terminal (cron only gets `/usr/bin:/bin`).
+- **Never prompts:** it passes `--unattended`. Without a terminal there is no way to type a sudo password, so steps that need sudo (macOS software updates, DNS flush, `gem cleanup`, periodic maintenance, ...) are logged as `Skipped (needs sudo)` and the run continues. The end of the run says how many were skipped; run htotheizzo manually now and then to do them.
+
+Logs: the run log is `~/logs/htotheizzo.log` (rotated as usual); raw tool output goes to `~/logs/htotheizzo.launchd.log` (truncated past 5 MB).
+
+`--unattended` can be used on its own too, e.g. from another scheduler.
+
 ## Automated Scheduling with Cron
+
+On macOS, prefer launchd (above). The cron instructions below are mainly for Linux.
 
 For automatic updates, you can schedule htotheizzo using cron. The recommended frequency is **weekly** as it provides a good balance between keeping packages updated for security and maintaining system stability.
 
