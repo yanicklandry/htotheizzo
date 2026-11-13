@@ -1355,9 +1355,20 @@ update_sparkle_apps() {
       | sed -E 's/.*"target"[[:space:]]*:[[:space:]]*"//; s/"$//')
   fi
 
+  # Apps antares has been told to ignore (bin/updates-ignore.sh) — e.g. one pinned
+  # at an older build on purpose for compatibility. That tool only silences
+  # antares' own report; without this check we'd still auto-update it here.
+  # Case-insensitive to match antares' own matching rule (_drop_ignored).
+  local _antares_ignore_file="${ANTARES_HOME:-$HOME/antares}/updates-ignore.txt"
+  local _ignored_names=""
+  if [[ -f "$_antares_ignore_file" ]]; then
+    _ignored_names=$(grep -v '^[[:space:]]*#' "$_antares_ignore_file" | grep -v '^[[:space:]]*$' | cut -f1)
+  fi
+
   # Pass 1: discover Sparkle apps (filesystem only, no network)
   local -a _sparkle_apps=()
   local -a _skipped_cask_names=()
+  local -a _skipped_ignore_names=()
   local _nullglob; _nullglob=$(shopt -p nullglob || true); shopt -s nullglob
 
   local IFS=:
@@ -1369,6 +1380,10 @@ update_sparkle_apps() {
         _skipped_cask_names+=("$(basename "$app" .app)")
         continue
       fi
+      if [[ -n "$_ignored_names" ]] && grep -qFxi "$(basename "$app" .app)" <<< "$_ignored_names"; then
+        _skipped_ignore_names+=("$(basename "$app" .app)")
+        continue
+      fi
       _sparkle_apps+=("$app")
     done
   done
@@ -1377,6 +1392,10 @@ update_sparkle_apps() {
 
   if [[ ${#_skipped_cask_names[@]} -gt 0 ]]; then
     log "Skipped ${#_skipped_cask_names[@]} Sparkle app(s) already kept current by Homebrew cask: $(IFS=', '; echo "${_skipped_cask_names[*]}")"
+  fi
+
+  if [[ ${#_skipped_ignore_names[@]} -gt 0 ]]; then
+    log "Skipped ${#_skipped_ignore_names[@]} Sparkle app(s) ignored via antares (bin/updates-ignore.sh): $(IFS=', '; echo "${_skipped_ignore_names[*]}")"
   fi
 
   if [[ ${#_sparkle_apps[@]} -eq 0 ]]; then

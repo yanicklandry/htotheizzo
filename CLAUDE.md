@@ -55,6 +55,33 @@ Skills are located in `.claude/skills/kiro-*/SKILL.md`
 - Keep steering current and verify alignment with `/kiro-spec-status`
 - Follow the user's instructions precisely, and within that scope act autonomously: gather the necessary context and complete the requested work end-to-end in this run, asking questions only when essential information is missing or the instructions are critically ambiguous.
 
+## Live checkout discipline
+
+`~/bin/.htotheizzo` is the **live checkout**: the launchd agent
+`com.htotheizzo.daily` (`~/Library/LaunchAgents/com.htotheizzo.daily.plist`)
+runs `htotheizzo.sh --unattended` from it every day at 02:00. Whatever is
+checked out there (another branch, an uncommitted edit) is what runs on this
+Mac the next time the agent fires. So:
+
+- **Never edit, commit, or switch branches directly in `~/bin/.htotheizzo`.**
+  Keep it on `master`; the only operation there is a fast-forward `git pull`
+  after merging a PR.
+- **Do new work in its own worktree**, cut from `origin/master`:
+  ```bash
+  git -C ~/bin/.htotheizzo fetch origin
+  git -C ~/bin/.htotheizzo worktree add ../htotheizzo-<slug> -b <type>/<slug> origin/master
+  ```
+  (A Kiro spec or an agent's own worktree, e.g. under `.claude/worktrees/`, is
+  fine — the rule is "not the live checkout," not "this exact path.")
+- Branch → PR → merge → `git -C ~/bin/.htotheizzo pull --ff-only` → remove the
+  worktree and branch. No second maintainer here, so "review" can just be a
+  self-review pass (or `/kiro-review`) rather than waiting on someone else —
+  that doesn't change the live-checkout rule itself.
+- This matters more here than on a read-only tool: an uncommitted or
+  half-finished edit to an *update* script, picked up by the agent, doesn't just
+  produce a bad report — it can install, upgrade, or delete something for
+  real, unattended.
+
 ## Steering Configuration
 - Load entire `.kiro/steering/` as project memory
 - Default files: `product.md`, `tech.md`, `structure.md`
