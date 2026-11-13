@@ -57,10 +57,11 @@ Skills are located in `.claude/skills/kiro-*/SKILL.md`
 
 ## Live checkout discipline
 
-`~/bin/.htotheizzo` is the **live checkout**: `crontab -l` runs
-`~/bin/htotheizzo.sh` (a symlink into it) on a schedule, unattended. Whatever is
-checked out there — another branch, an uncommitted edit — is what runs on this
-Mac next time cron fires. So:
+`~/bin/.htotheizzo` is the **live checkout**: the launchd agent
+`com.htotheizzo.daily` (`~/Library/LaunchAgents/com.htotheizzo.daily.plist`)
+runs `htotheizzo.sh --unattended` from it every day at 02:00. Whatever is
+checked out there (another branch, an uncommitted edit) is what runs on this
+Mac the next time the agent fires. So:
 
 - **Never edit, commit, or switch branches directly in `~/bin/.htotheizzo`.**
   Keep it on `master`; the only operation there is a fast-forward `git pull`
@@ -77,7 +78,7 @@ Mac next time cron fires. So:
   self-review pass (or `/kiro-review`) rather than waiting on someone else —
   that doesn't change the live-checkout rule itself.
 - This matters more here than on a read-only tool: an uncommitted or
-  half-finished edit to an *update* script, picked up by cron, doesn't just
+  half-finished edit to an *update* script, picked up by the agent, doesn't just
   produce a bad report — it can install, upgrade, or delete something for
   real, unattended.
 
