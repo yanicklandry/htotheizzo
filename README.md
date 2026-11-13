@@ -129,12 +129,35 @@ All available skip variables: `skip_time_machine`, `skip_brew`, `skip_mas`, `ski
 
 ### Developer Cache Cleanup
 
-`clean_dev_caches` clears caches that their tools rebuild on demand: Bun (`bun pm cache rm`), Homebrew downloads (`brew cleanup --prune=all`), `~/.gradle/caches` (skipped while a Gradle daemon is running), CocoaPods (`pod cache clean --all`), unavailable iOS Simulator devices (`xcrun simctl delete unavailable`), `~/.cargo/registry/{cache,src}`, and unreferenced pnpm store packages (`pnpm store prune`).
+`clean_dev_caches` clears caches that their tools rebuild on demand: Bun (`bun pm cache rm`, weekly), Homebrew downloads (`brew cleanup --prune=all`), `~/.gradle/caches` (skipped while a Gradle daemon is running), CocoaPods (`pod cache clean --all`), unavailable iOS Simulator devices (`xcrun simctl delete unavailable`), `~/.cargo/registry/{cache,src}`, and unreferenced pnpm store packages (`pnpm store prune`, weekly).
 
 It never removes installed runtimes (nvm Node versions, pyenv Python versions) or `~/.m2` (which can hold locally installed artifacts that cannot be re-downloaded).
 
 - `skip_dev_caches=1` : skip this section
 - `only_dev_caches=1` : run only this section
+
+### Daily and Weekly Cache Schedule
+
+Caches of heavily used Python and JS package managers are not wiped on every run, since a full clean makes every next install download everything again. Instead:
+
+| Tool | Every run (daily) | Weekly |
+|---|---|---|
+| uv | `uv cache prune` (unused entries only) | `uv cache clean` |
+| npm | `npm cache verify` (garbage-collect + integrity check) | `npm cache clean --force` |
+| pip / pip3 | nothing | `pip cache purge` |
+| pipenv | nothing | `pipenv --clear` |
+| yarn | nothing | `yarn cache clean` |
+| pnpm | nothing | `pnpm store prune` |
+| bun | nothing | `bun pm cache rm` |
+
+All other caches (Homebrew, Gradle, CocoaPods, Cargo, browsers, ...) are still cleaned on every run.
+
+The last weekly clean is recorded in `~/.local/state/htotheizzo/last_weekly_cache_clean` (or under `$XDG_STATE_HOME`). It is not recorded by `only_*` runs or `--mock` runs.
+
+- `force_weekly_cache_clean=1` : run the weekly clean now
+- `WEEKLY_CACHE_CLEAN_DAYS=N` : days between weekly cleans (default 7)
+
+uv cache commands give up after 1 second if another uv process (e.g. a uvx MCP server) holds the cache lock, and are skipped for that run.
 
 ### Sparkle App Updates
 
