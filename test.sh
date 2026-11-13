@@ -365,6 +365,79 @@ test_permissions() {
     fi
 }
 
+# Load _run_cleanup and _path_size from htotheizzo.sh with a log() that
+# records into $CLEANUP_LOG (issue #28).
+load_cleanup_helpers() {
+    CLEANUP_LOG="$TEST_DIR/cleanup.log"
+    : > "$CLEANUP_LOG"
+    SUITE_LOG_FN=$(declare -f log)
+    log() { echo "$1" >> "$CLEANUP_LOG"; }
+    eval "$(sed -n '/^_path_size() {/,/^}/p; /^_run_cleanup() {/,/^}/p' htotheizzo.sh)"
+}
+
+# Put the suite's own log() back after a helper test
+restore_suite_log() {
+    eval "$SUITE_LOG_FN"
+}
+
+test_run_cleanup_outcomes() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "_run_cleanup tells timeouts, protected folders and real errors apart"
+
+    load_cleanup_helpers
+    local dir="$TEST_DIR/run_cleanup"
+    mkdir -p "$dir/locked" "$dir/open"
+    touch "$dir/open/a.tmp" "$dir/locked/b.tmp"
+    chmod 000 "$dir/locked"
+
+    local fails=""
+    _run_cleanup "Perm case" 10 find "$dir" -name "*.tmp" -type f -delete
+    grep -q "^Warning:" "$CLEANUP_LOG" && fails+=" perm-case-warned"
+    grep -q "Perm case: skipped 1 protected item(s).*(locked...)" "$CLEANUP_LOG" || fails+=" perm-case-not-reported"
+    [[ -f "$dir/open/a.tmp" ]] && fails+=" readable-file-not-deleted"
+    chmod 755 "$dir/locked"
+
+    : > "$CLEANUP_LOG"
+    _run_cleanup "Slow case" 1 sleep 5
+    grep -q "^Warning: Slow case timed out after 1s$" "$CLEANUP_LOG" || fails+=" timeout-not-reported"
+
+    : > "$CLEANUP_LOG"
+    _run_cleanup "Error case" 10 sh -c 'echo "disk on fire" >&2; exit 3'
+    grep -q "^Warning: Error case failed (exit 3): disk on fire$" "$CLEANUP_LOG" || fails+=" error-not-reported"
+
+    : > "$CLEANUP_LOG"
+    _run_cleanup "Clean case" 10 true
+    [[ -s "$CLEANUP_LOG" ]] && fails+=" success-logged-something"
+    restore_suite_log
+
+    if [[ -z "$fails" ]]; then
+        log_pass "Each outcome logged correctly"
+    else
+        log_fail "Wrong reporting:$fails ($(tr '\n' '|' < "$CLEANUP_LOG"))"
+    fi
+}
+
+test_path_size_partial() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "_path_size keeps du's total when a subfolder is unreadable"
+
+    load_cleanup_helpers
+    local dir="$TEST_DIR/size_partial"
+    mkdir -p "$dir/locked"
+    head -c 20000 /dev/zero > "$dir/data.bin"
+    chmod 000 "$dir/locked"
+    local size
+    size=$(_path_size "$dir")
+    chmod 755 "$dir/locked"
+    restore_suite_log
+
+    if [[ "$size" =~ ^[0-9.,]+[BKMGTP]$ ]]; then
+        log_pass "Reported size: $size"
+    else
+        log_fail "Got '$size'"
+    fi
+}
+
 # ============================================================================
 # CLI FLAGS TESTS
 # ============================================================================
@@ -776,6 +849,8 @@ main() {
     test_timeout_functionality
     test_empty_directory
     test_permissions
+    test_run_cleanup_outcomes
+    test_path_size_partial
 
     log_section "Integration"
     test_full_integration
