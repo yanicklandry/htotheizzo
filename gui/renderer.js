@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Maintenance
         { id: 'browser_cache', label: 'Browser Cache Cleanup', category: 'Maintenance' },
+        { id: 'dev_caches', label: 'Developer Cache Cleanup', category: 'Maintenance' },
         { id: 'appimage', label: 'AppImage (Linux)', category: 'Maintenance' },
 
         // Advanced

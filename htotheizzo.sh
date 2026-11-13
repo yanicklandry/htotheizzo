@@ -510,6 +510,84 @@ clean_browser_caches() {
   fi
 }
 
+# Print the human-readable size of a path, or "0" if it does not exist
+_path_size() {
+  [[ -e "$1" ]] || { echo "0"; return 0; }
+  du -sh "$1" 2>/dev/null | cut -f1 || echo "unknown"
+}
+
+# True if a tool is installed and not disabled via skip_<tool>. Unlike
+# command_exists, ignores only_ mode: the dev_caches section gate decides that.
+_dev_tool_present() {
+  local varname="skip_${1//-/_}"
+  [[ -z "${!varname:-}" ]] && command -v "$1" >/dev/null 2>&1
+}
+
+# Clear developer caches that their tools rebuild on demand.
+# Deliberately does NOT touch installed runtimes (nvm Node versions, pyenv
+# Python versions) or ~/.m2 (may hold locally installed, non-downloadable
+# artifacts). Skip with skip_dev_caches=1, or run alone with only_dev_caches=1.
+clean_dev_caches() {
+  log "Cleaning developer caches (runtimes and toolchains are left alone)..."
+  local cleaned=()
+
+  if [[ -z "${HOME:-}" ]]; then
+    log "Warning: HOME is not set; skipping developer cache cleanup"
+    return 0
+  fi
+
+  # Bun package cache
+  if _dev_tool_present bun; then
+    log "Bun cache: $(_path_size "$HOME/.bun/install/cache")"
+    maybe_run "bun pm cache rm" && cleaned+=("bun") || log "Warning: bun cache cleanup failed"
+  fi
+
+  # Homebrew: remove all cached downloads, not just old ones
+  if _dev_tool_present brew; then
+    log "Homebrew cache: $(_path_size "$(brew --cache 2>/dev/null)")"
+    maybe_run "brew cleanup --prune=all" && cleaned+=("brew") || log "Warning: brew cleanup --prune=all failed"
+  fi
+
+  # Gradle download/transform caches (not wrapper distributions or config)
+  if [[ -d "$HOME/.gradle/caches" ]]; then
+    if pgrep -f GradleDaemon &>/dev/null; then
+      log "Gradle daemon is running; skipping Gradle cache cleanup (run 'gradle --stop' first)"
+    else
+      log "Gradle caches: $(_path_size "$HOME/.gradle/caches")"
+      maybe_run "rm -rf \"\$HOME/.gradle/caches\"" && cleaned+=("gradle") || log "Warning: Gradle cache cleanup failed"
+    fi
+  fi
+
+  # CocoaPods spec/pod download cache
+  if _dev_tool_present pod; then
+    log "CocoaPods cache: $(_path_size "$HOME/Library/Caches/CocoaPods")"
+    maybe_run "pod cache clean --all" && cleaned+=("cocoapods") || log "Warning: CocoaPods cache cleanup failed"
+  fi
+
+  # iOS Simulator devices whose runtime is no longer installed
+  if [[ "$OSTYPE" == "darwin"* ]] && _dev_tool_present xcrun && xcrun simctl help &>/dev/null; then
+    log "Removing unavailable iOS Simulator devices..."
+    maybe_run "xcrun simctl delete unavailable" && cleaned+=("simulators") || log "Warning: simctl delete unavailable failed"
+  fi
+
+  # Cargo downloaded crates and extracted sources (index is kept)
+  if [[ -d "$HOME/.cargo/registry" ]]; then
+    log "Cargo registry cache: $(_path_size "$HOME/.cargo/registry/cache"), sources: $(_path_size "$HOME/.cargo/registry/src")"
+    maybe_run "rm -rf \"\$HOME/.cargo/registry/cache\" \"\$HOME/.cargo/registry/src\"" && cleaned+=("cargo") || log "Warning: Cargo registry cleanup failed"
+  fi
+
+  # pnpm: drop store packages no project references
+  if _dev_tool_present pnpm; then
+    maybe_run "pnpm store prune" && cleaned+=("pnpm") || log "Warning: pnpm store prune failed"
+  fi
+
+  if [[ ${#cleaned[@]} -gt 0 ]]; then
+    log "Developer caches cleaned: ${cleaned[*]}"
+  else
+    log "No developer caches found to clean"
+  fi
+}
+
 # Advanced Features
 
 estimate_update_sizes() {
@@ -684,6 +762,11 @@ update_linux() {
     clean_browser_caches
   else
     log "Skipped browser_caches"
+  fi
+  if should_run dev_caches; then
+    clean_dev_caches
+  else
+    log "Skipped dev_caches"
   fi
 
   if command_exists brew; then
@@ -1291,6 +1374,13 @@ update() {
       clean_browser_caches
     else
       log "Skipped browser_caches"
+    fi
+
+    # Clean developer caches (rebuilt on demand)
+    if should_run dev_caches; then
+      clean_dev_caches
+    else
+      log "Skipped dev_caches"
     fi
 
     if should_run system_maintenance; then

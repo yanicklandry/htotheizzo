@@ -125,7 +125,16 @@ skip_docker=1 skip_gcloud=1 skip_aws=1 htotheizzo.sh
 skip_pip=1 skip_pip3=1 skip_poetry=1 skip_conda=1 htotheizzo.sh
 ```
 
-All available skip variables: `skip_time_machine`, `skip_brew`, `skip_mas`, `skip_snap`, `skip_flatpak`, `skip_bun`, `skip_npm`, `skip_yarn`, `skip_pnpm`, `skip_deno`, `skip_pip`, `skip_pip3`, `skip_pipenv`, `skip_poetry`, `skip_pdm`, `skip_uv`, `skip_conda`, `skip_mamba`, `skip_gem`, `skip_rvm`, `skip_rbenv`, `skip_rustup`, `skip_cargo`, `skip_go`, `skip_composer`, `skip_cpan`, `skip_asdf`, `skip_mise`, `skip_nvm`, `skip_nodenv`, `skip_pyenv`, `skip_goenv`, `skip_jenv`, `skip_sdk`, `skip_tfenv`, `skip_docker`, `skip_helm`, `skip_kubectl`, `skip_gh`, `skip_gcloud`, `skip_aws`, `skip_az`, `skip_code`, `skip_claude`, `skip_gsd`, `skip_pod`, `skip_flutter`, `skip_omz`, `skip_antibody`, `skip_fisher`, `skip_starship`, `skip_port`, `skip_nix-env`, `skip_kav`, `skip_apm`, `skip_spotlight`, `skip_launchpad`, `skip_sparkle`
+All available skip variables: `skip_time_machine`, `skip_brew`, `skip_mas`, `skip_snap`, `skip_flatpak`, `skip_bun`, `skip_npm`, `skip_yarn`, `skip_pnpm`, `skip_deno`, `skip_pip`, `skip_pip3`, `skip_pipenv`, `skip_poetry`, `skip_pdm`, `skip_uv`, `skip_conda`, `skip_mamba`, `skip_gem`, `skip_rvm`, `skip_rbenv`, `skip_rustup`, `skip_cargo`, `skip_go`, `skip_composer`, `skip_cpan`, `skip_asdf`, `skip_mise`, `skip_nvm`, `skip_nodenv`, `skip_pyenv`, `skip_goenv`, `skip_jenv`, `skip_sdk`, `skip_tfenv`, `skip_docker`, `skip_helm`, `skip_kubectl`, `skip_gh`, `skip_gcloud`, `skip_aws`, `skip_az`, `skip_code`, `skip_claude`, `skip_gsd`, `skip_pod`, `skip_flutter`, `skip_omz`, `skip_antibody`, `skip_fisher`, `skip_starship`, `skip_port`, `skip_nix-env`, `skip_kav`, `skip_apm`, `skip_spotlight`, `skip_launchpad`, `skip_sparkle`, `skip_dev_caches`
+
+### Developer Cache Cleanup
+
+`clean_dev_caches` clears caches that their tools rebuild on demand: Bun (`bun pm cache rm`), Homebrew downloads (`brew cleanup --prune=all`), `~/.gradle/caches` (skipped while a Gradle daemon is running), CocoaPods (`pod cache clean --all`), unavailable iOS Simulator devices (`xcrun simctl delete unavailable`), `~/.cargo/registry/{cache,src}`, and unreferenced pnpm store packages (`pnpm store prune`).
+
+It never removes installed runtimes (nvm Node versions, pyenv Python versions) or `~/.m2` (which can hold locally installed artifacts that cannot be re-downloaded).
+
+- `skip_dev_caches=1` : skip this section
+- `only_dev_caches=1` : run only this section
 
 ### Sparkle App Updates
 
