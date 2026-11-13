@@ -22,7 +22,8 @@ Flat and script-centric. The shell script is the primary artifact; everything el
 
 ### Time Machine toolkit
 **Location**: `time-machine/`  
-**Purpose**: Companion scripts for macOS Time Machine backup hygiene: `setup.sh`, `doctor.sh`, `estimate.sh`, `git-check.sh`, `backup.sh`, `RECOMMENDATIONS.md`. Integrated into the macOS maintenance pass of `htotheizzo.sh`.
+**Purpose**: Companion scripts for macOS Time Machine backup hygiene: `setup.sh`, `doctor.sh`, `estimate.sh`, `git-check.sh`, `backup.sh`, `exclude-vendor.sh`, `RECOMMENDATIONS.md`. Integrated into the macOS maintenance pass of `htotheizzo.sh`.
+**Pattern**: `lib/` holds shared bash libraries (`source`d, not executed directly) reused across scripts — `antares-folders.sh` (reads antares' `watch-folders.tsv`/`watch-auto.tsv`, read-only), `vendor-dirs.sh` (canonical vendor/build directory matcher), `smoke-test.sh` (fixture-based regression checks for both). `launchd/` holds `.plist.template` files substituted and installed per-user (no `sudo`) by a script's own `--install-launchd`-style flag — mirrors antares' `__HOME__`/`__SCRIPT__`/`__PROG__` template convention.
 
 ### Documentation
 **Location**: `docs/`  
