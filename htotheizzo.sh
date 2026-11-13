@@ -126,6 +126,8 @@ help() {
   echo "  skip_<name>=1       Skip a specific package manager or feature"
   echo "  only_<name>=1       Run only the specified section(s); skip everything else"
   echo "  Examples: skip_brew=1  skip_sparkle=1  only_sparkle=1  only_brew=1 only_npm=1"
+  echo "  force_weekly_cache_clean=1   Run the weekly Python/JS cache clean now"
+  echo "  WEEKLY_CACHE_CLEAN_DAYS=N    Days between weekly cache cleans (default 7)"
   echo ""
   echo "Features:"
   echo "  - Updates 60+ package managers and tools"
@@ -523,6 +525,86 @@ _dev_tool_present() {
   [[ -z "${!varname:-}" ]] && command -v "$1" >/dev/null 2>&1
 }
 
+# Daily/weekly schedule for caches of heavily used package managers (Python:
+# pip, pipenv, uv; JS: npm, yarn, pnpm, bun). Wiping these forces every install
+# to re-download, so they get a light daily pass (prune/verify, where the tool
+# has one) and a full clean only once every WEEKLY_CACHE_CLEAN_DAYS days.
+# Everything else keeps being cleaned on every run.
+CACHE_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/htotheizzo"
+WEEKLY_CACHE_STAMP="$CACHE_STATE_DIR/last_weekly_cache_clean"
+WEEKLY_CACHE_CLEAN_DAYS="${WEEKLY_CACHE_CLEAN_DAYS:-7}"
+WEEKLY_CACHE_CLEAN_DUE=""
+
+init_cache_schedule() {
+  if [[ -n "${force_weekly_cache_clean:-}" ]]; then
+    WEEKLY_CACHE_CLEAN_DUE=1
+    log "Weekly cache clean forced (force_weekly_cache_clean=1)"
+    return 0
+  fi
+  if [[ ! -f "$WEEKLY_CACHE_STAMP" ]]; then
+    WEEKLY_CACHE_CLEAN_DUE=1
+    log "Weekly cache clean due (no previous run recorded)"
+    return 0
+  fi
+  local last now age_days
+  last=$(cat "$WEEKLY_CACHE_STAMP" 2>/dev/null || echo "")
+  if [[ ! "$last" =~ ^[0-9]+$ ]]; then
+    WEEKLY_CACHE_CLEAN_DUE=1
+    log "Weekly cache clean due (unreadable record in $WEEKLY_CACHE_STAMP)"
+    return 0
+  fi
+  now=$(date +%s)
+  # Round to the nearest day so a daily run a few hours earlier than last
+  # week's still counts as 7 days, instead of slipping the clean to day 8.
+  age_days=$(( (now - last + 43200) / 86400 ))
+  if (( age_days >= WEEKLY_CACHE_CLEAN_DAYS )); then
+    WEEKLY_CACHE_CLEAN_DUE=1
+    log "Weekly cache clean due (last one ${age_days} day(s) ago)"
+  else
+    log "Weekly cache clean not due (last one ${age_days} day(s) ago, next in $((WEEKLY_CACHE_CLEAN_DAYS - age_days)) day(s)): Python/JS caches get the daily pass only"
+  fi
+}
+
+weekly_cache_clean_due() {
+  [[ -n "$WEEKLY_CACHE_CLEAN_DUE" ]]
+}
+
+# Record the weekly clean. Not in only_ mode: a partial run did not clean
+# every heavy cache, so the next full run should still do it.
+mark_weekly_cache_clean_done() {
+  weekly_cache_clean_due || return 0
+  _only_mode_active && return 0
+  if [[ -n "$MOCK_MODE" ]]; then
+    log "[MOCK] Would record weekly cache clean in $WEEKLY_CACHE_STAMP"
+    return 0
+  fi
+  if mkdir -p "$CACHE_STATE_DIR" && date +%s > "$WEEKLY_CACHE_STAMP"; then
+    log "Weekly cache clean recorded; next one in $WEEKLY_CACHE_CLEAN_DAYS day(s)"
+  else
+    log "Warning: could not record weekly cache clean in $WEEKLY_CACHE_STAMP"
+  fi
+}
+
+# Run `uv cache <action>` without blocking on the cache lock. uv otherwise waits
+# up to 300s while another uv process (e.g. a uvx MCP server) holds it.
+_uv_cache() {
+  local action="$1" out
+  if [[ -n "$MOCK_MODE" ]]; then
+    log "[MOCK] Would run: uv cache $action"
+    return 0
+  fi
+  if ! out=$(UV_LOCK_TIMEOUT=1 uv cache "$action" 2>&1); then
+    if [[ "$out" == *"waiting for lock"* ]]; then
+      log "Skipping uv cache $action: cache is in use by another uv process"
+    else
+      log "Warning: uv cache $action failed: $out"
+    fi
+  elif [[ -n "$out" ]]; then
+    log "$out"
+  fi
+  return 0
+}
+
 # Clear developer caches that their tools rebuild on demand.
 # Deliberately does NOT touch installed runtimes (nvm Node versions, pyenv
 # Python versions) or ~/.m2 (may hold locally installed, non-downloadable
@@ -536,10 +618,14 @@ clean_dev_caches() {
     return 0
   fi
 
-  # Bun package cache
+  # Bun package cache (weekly: heavily used JS cache, no prune command)
   if _dev_tool_present bun; then
     log "Bun cache: $(_path_size "$HOME/.bun/install/cache")"
-    maybe_run "bun pm cache rm" && cleaned+=("bun") || log "Warning: bun cache cleanup failed"
+    if weekly_cache_clean_due; then
+      maybe_run "bun pm cache rm" && cleaned+=("bun") || log "Warning: bun cache cleanup failed"
+    else
+      log "Bun cache kept (weekly clean not due)"
+    fi
   fi
 
   # Homebrew: remove all cached downloads, not just old ones
@@ -576,9 +662,14 @@ clean_dev_caches() {
     maybe_run "rm -rf \"\$HOME/.cargo/registry/cache\" \"\$HOME/.cargo/registry/src\"" && cleaned+=("cargo") || log "Warning: Cargo registry cleanup failed"
   fi
 
-  # pnpm: drop store packages no project references
+  # pnpm: drop store packages no project references. Weekly: pnpm's docs advise
+  # pruning only occasionally, since pruned packages are often needed again.
   if _dev_tool_present pnpm; then
-    maybe_run "pnpm store prune" && cleaned+=("pnpm") || log "Warning: pnpm store prune failed"
+    if weekly_cache_clean_due; then
+      maybe_run "pnpm store prune" && cleaned+=("pnpm") || log "Warning: pnpm store prune failed"
+    else
+      log "pnpm store kept (weekly prune not due)"
+    fi
   fi
 
   if [[ ${#cleaned[@]} -gt 0 ]]; then
@@ -1254,6 +1345,9 @@ update() {
   # Set up file logging first (before other operations)
   setup_file_logging
 
+  # Decide once per run whether the weekly Python/JS cache clean is due
+  init_cache_schedule
+
   # Request administrator privileges with native dialog (includes Touch ID)
   # Skip in mock mode or when SKIP_SUDO=1 (non-interactive test environments)
   if [[ -n "${MOCK_MODE:-}" || -n "${SKIP_SUDO:-}" ]]; then
@@ -1506,7 +1600,14 @@ update() {
       npm update -g || log "Warning: npm global update failed"
     fi
     
-    npm cache clean --force || log "Warning: npm cache clean failed"
+    if weekly_cache_clean_due; then
+      progress "Cleaning npm cache (weekly)"
+      npm cache clean --force || log "Warning: npm cache clean failed"
+    else
+      # Daily: garbage-collect unneeded data and check integrity, keep the rest
+      progress "Verifying npm cache"
+      npm cache verify || log "Warning: npm cache verify failed"
+    fi
   fi
 
   if command_exists yarn; then
@@ -1532,8 +1633,12 @@ update() {
     else
       log "Yarn found but no update method available; skipping"
     fi
-    progress "Cleaning yarn cache"
-    yarn cache clean || log "Warning: yarn cache clean failed"
+    if weekly_cache_clean_due; then
+      progress "Cleaning yarn cache (weekly)"
+      yarn cache clean || log "Warning: yarn cache clean failed"
+    else
+      log "yarn cache kept (weekly clean not due)"
+    fi
   fi
 
   if command_exists nvm; then
@@ -1579,8 +1684,12 @@ update() {
       echo "$pip_packages" | xargs -n1 pip install -U --user || log "Warning: pip package updates failed"
     fi
     export PIP_REQUIRE_VIRTUALENV=true
-    progress "Purging pip cache"
-    pip cache purge || log "Warning: pip cache purge failed"
+    if weekly_cache_clean_due; then
+      progress "Purging pip cache (weekly)"
+      pip cache purge || log "Warning: pip cache purge failed"
+    else
+      log "pip cache kept (weekly purge not due)"
+    fi
   fi
 
   if command_exists pip3; then
@@ -1607,13 +1716,21 @@ update() {
       echo "$pip3_packages" | xargs -n1 pip3 install -U --user || log "Warning: pip3 package updates failed"
     fi
     export PIP_REQUIRE_VIRTUALENV=true
-    progress "Purging pip3 cache"
-    pip3 cache purge || log "Warning: pip3 cache purge failed"
+    if weekly_cache_clean_due; then
+      progress "Purging pip3 cache (weekly)"
+      pip3 cache purge || log "Warning: pip3 cache purge failed"
+    else
+      log "pip3 cache kept (weekly purge not due)"
+    fi
   fi
 
   if command_exists pipenv; then
-    # echo "Clearing pipenv cache"
-    pipenv --clear
+    if weekly_cache_clean_due; then
+      progress "Clearing pipenv cache (weekly)"
+      pipenv --clear || log "Warning: pipenv --clear failed"
+    else
+      log "pipenv cache kept (weekly clean not due)"
+    fi
   fi
 
   if ! _only_mode_active; then progress "Updating Rust and systems tools"; fi
@@ -1804,18 +1921,13 @@ update() {
       log "Updating uv (includes uvx)..."
       uv self update || log "Warning: uv self update failed"
     fi
-    progress "Cleaning uv cache"
-    # uv waits up to 300s for the cache lock while another uv process (e.g. a uvx
-    # MCP server) is running. Give up after 1s and skip instead of blocking the run.
-    local uv_clean_out
-    if ! uv_clean_out=$(UV_LOCK_TIMEOUT=1 uv cache clean 2>&1); then
-      if [[ "$uv_clean_out" == *"waiting for lock"* ]]; then
-        log "Skipping uv cache clean: cache is in use by another uv process"
-      else
-        log "Warning: uv cache clean failed: $uv_clean_out"
-      fi
+    if weekly_cache_clean_due; then
+      progress "Cleaning uv cache (weekly)"
+      _uv_cache clean
     else
-      [[ -n "$uv_clean_out" ]] && log "$uv_clean_out"
+      # Daily: drop only entries nothing uses any more
+      progress "Pruning uv cache"
+      _uv_cache prune
     fi
   fi
 
@@ -1992,6 +2104,8 @@ update() {
   if ! _only_mode_active; then
     check_uptime
   fi
+
+  mark_weekly_cache_clean_done
 
   log "htotheizzo is complete, you got 99 problems but updates ain't one"
 
