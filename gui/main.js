@@ -238,6 +238,7 @@ ipcMain.handle('detect-commands', async () => {
   detectionResults['backup_warning'] = true;  // Always available
   detectionResults['load_check'] = true;  // Always available
   detectionResults['browser_cache'] = true;  // Always available
+  detectionResults['dev_caches'] = true;  // Always available
   detectionResults['file_logging'] = true;  // Always available
   detectionResults['size_estimate'] = true;  // Always available
 
