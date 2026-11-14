@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
         { id: 'softwareupdate', label: 'Software Update', category: 'macOS' },
         { id: 'disk_maintenance', label: 'Disk Maintenance', category: 'macOS' },
         { id: 'system_maintenance', label: 'System Maintenance', category: 'macOS' },
-        { id: 'spotlight', label: 'Spotlight Rebuild', category: 'macOS' },
+        { id: 'spotlight', label: 'Spotlight Rebuild', category: 'macOS', defaultOff: true },
         { id: 'launchpad', label: 'Launchpad Reset', category: 'macOS' },
 
         // System Health
@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const optionDiv = document.createElement('div');
         optionDiv.className = 'option';
         optionDiv.innerHTML = `
-            <input type="checkbox" id="skip_${pm.id}" checked />
+            <input type="checkbox" id="skip_${pm.id}" ${pm.defaultOff ? '' : 'checked'} />
             <label for="skip_${pm.id}">${pm.label}</label>
         `;
         optionsGrid.appendChild(optionDiv);
@@ -349,6 +349,12 @@ Alternative schedules:
                 options[checkbox.id] = '1';
             }
         });
+
+        // The Spotlight rebuild is opt-in in htotheizzo.sh: ask for it explicitly
+        const spotlight = document.getElementById('skip_spotlight');
+        if (spotlight && spotlight.checked) {
+            options['spotlight_rebuild'] = '1';
+        }
 
         // Add log file path if customized
         const logPath = logFilePath.value.trim();

@@ -39,7 +39,7 @@ Originally inspired by https://gist.github.com/jfrazelle/57dbf1fccfa02151ff3f, n
 
 **Shell Customization:** Oh My Zsh, Zinit, Antibody, Antigen, Fisher, Starship
 
-**macOS Maintenance:** Disk verification, cache clearing, Spotlight rebuild, Launchpad reset
+**macOS Maintenance:** Disk verification, cache clearing, Launchpad reset, Spotlight rebuild on request (`spotlight_rebuild=1`)
 
 ## Requirements
 
@@ -246,11 +246,37 @@ This installs `~/Library/LaunchAgents/com.htotheizzo.daily.plist`. Compared with
 
 - **Catches up after sleep:** if the Mac is asleep at the scheduled time, the run happens on wake (cron just skips it).
 - **Same environment as a manual run:** it runs `zsh -lic`, so brew, nvm, pyenv, uv, etc. are found exactly as in your terminal (cron only gets `/usr/bin:/bin`).
-- **Never prompts:** it passes `--unattended`. Without a terminal there is no way to type a sudo password, so steps that need sudo (macOS software updates, DNS flush, `gem cleanup`, periodic maintenance, ...) are logged as `Skipped (needs sudo)` and the run continues. The end of the run says how many were skipped; run htotheizzo manually now and then to do them.
+- **Never prompts:** it passes `--unattended`. Without a terminal there is no way to type a sudo password, so steps that need sudo are logged as `Skipped (needs sudo)` and the run continues, unless you installed the sudo rule below. The end of the run (and the notification) says how many were skipped.
 
 Logs: the run log is `~/logs/htotheizzo.log` (rotated as usual); raw tool output goes to `~/logs/htotheizzo.launchd.log` (truncated past 5 MB).
 
 `--unattended` can be used on its own too, e.g. from another scheduler.
+
+### Unattended sudo (optional)
+
+Let the daily run do the routine root maintenance too, with no prompt and no stored password:
+
+```bash
+htotheizzo.sh --install-sudoers     # asks for your password / Touch ID once
+htotheizzo.sh --status              # "Unattended sudo rule: active (5 commands permitted)"
+htotheizzo.sh --uninstall-sudoers   # remove it
+```
+
+This writes `/etc/sudoers.d/htotheizzo` (root:wheel, read-only, checked with `visudo` before and after install, rolled back if anything fails). It lets your user run exactly these command lines as root without a password, nothing else:
+
+```
+/usr/sbin/diskutil verifyVolume /
+/usr/sbin/purge
+/usr/libexec/locate.updatedb
+/usr/bin/dscacheutil -flushcache
+/usr/bin/killall -HUP mDNSResponder
+```
+
+- **Trade-off:** any program running as you can run those exact commands as root without asking. They only verify the disk, free memory, refresh the `locate` database and flush DNS caches, so the exposure is small, but it is not zero.
+- **Deliberately not included** (they stay attended-only): `xcodebuild -license accept` runs whichever Xcode is selected, which can be a user-owned app; `periodic` runs scripts from directories that can be user-writable; `gem`, MacPorts and Time Machine snapshots run arbitrary or heavy work. Allowing any of them would amount to root access.
+- **macOS updates are never installed by the unattended run.** On Apple Silicon they need your account password, which no sudo rule can provide. The unattended run lists them and says "macOS updates pending" in the notification. Turn on System Settings > General > Software Update > Automatic Updates and macOS installs them itself; an attended `htotheizzo.sh` run still installs them as before.
+- If a future version changes the list, `--status` shows the rule as outdated and the daily run skips all of these steps (the rule is treated as inactive) until you run `--install-sudoers` again.
+- The Spotlight index rebuild (`mdutil -E /`) no longer runs by default; ask for it with `spotlight_rebuild=1 htotheizzo.sh`.
 
 ## Automated Scheduling with Cron
 

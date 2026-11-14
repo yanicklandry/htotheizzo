@@ -211,7 +211,7 @@ ipcMain.handle('detect-commands', async () => {
     detectionResults['spotlight'] = true;
     detectionResults['launchpad'] = true;
     detectionResults['disk_maintenance'] = true;  // Uses diskutil, always available on macOS
-    detectionResults['system_maintenance'] = true;  // Uses periodic, always available on macOS
+    detectionResults['system_maintenance'] = true;  // locate DB + DNS flush, always available on macOS
   } else {
     detectionResults['spotlight'] = false;
     detectionResults['launchpad'] = false;

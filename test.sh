@@ -27,7 +27,7 @@ run_htotheizzo_fast() {
     MOCK_MODE=1 skip_file_logging=1 \
     skip_softwareupdate=1 skip_xcode_select=1 \
     skip_disk_maintenance=1 skip_system_maintenance=1 \
-    skip_spotlight=1 skip_launchpad=1 \
+    skip_spotlight="${skip_spotlight-1}" skip_launchpad=1 \
     skip_battery_check=1 \
     skip_brew=1 skip_mas=1 \
     skip_npm=1 skip_yarn=1 skip_pnpm=1 skip_bun=1 skip_deno=1 \
@@ -849,6 +849,432 @@ test_sparkle_regression() {
 # SUMMARY
 # ============================================================================
 
+# ============================================================================
+# UNATTENDED SUDO TESTS (scoped sudoers rule, unattended-sudo spec)
+# ============================================================================
+
+# Recording stubs placed first on PATH, so these tests never reach the real
+# sudo, softwareupdate, osascript, defaults or mdutil. Every call is appended
+# to $STUB_CALLS.
+#   sudo: rejects "-n true" (no cached credentials); accepts "-v" only when
+#         STUB_ALLOW_V=1; accepts the probe "-k -n /usr/bin/true <token>" only
+#         when <token> equals STUB_SUDO_TOKEN; records and accepts anything else.
+#   softwareupdate --list: prints STUB_SWU_LIST.
+#   defaults: prints STUB_AUTO_UPDATE, or fails when it is unset.
+make_sudo_stubs() {
+    STUB_BIN="$TEST_DIR/stubbin"
+    STUB_CALLS="$TEST_DIR/stub_calls"
+    export STUB_CALLS
+    mkdir -p "$STUB_BIN" "$TEST_DIR/home"
+    : > "$STUB_CALLS"
+    cat > "$STUB_BIN/sudo" <<'STUB'
+#!/bin/bash
+echo "sudo $*" >> "$STUB_CALLS"
+if [[ -n "${STUB_SUDO_EXEC:-}" ]]; then
+  # Install/rollback tests: act on the temp rule file as the current user.
+  # Only these subcommands are ever executed; anything else is just recorded.
+  case "${1:-}" in
+    -v) exit 0 ;;
+    -k) [[ -z "${STUB_PROBE_FAIL:-}" && -f "$STUB_RULE_FILE" ]] && grep -qF "/usr/bin/true ${4:-none}" "$STUB_RULE_FILE"; exit $? ;;
+    cp|mv|rm|cat) [[ "${*: -1}" == "$STUB_RULE_FILE"* || "${2:-}" == "$STUB_RULE_FILE"* || "${3:-}" == "$STUB_RULE_FILE"* ]] || exit 97; exec "$@" ;;
+    /usr/bin/install) [[ "${*: -1}" == "$STUB_RULE_FILE" ]] || exit 97; rm -f "${*: -1}" && cp "${@: -2:1}" "${*: -1}" && chmod 0440 "${*: -1}"; exit $? ;;
+    /usr/sbin/visudo) [[ -z "${STUB_VISUDO_FAIL:-}" ]]; exit $? ;;
+    *) exit 0 ;;
+  esac
+fi
+if [[ "${1:-}" == "-n" && "${2:-}" == "true" ]]; then exit 1; fi
+if [[ "${1:-}" == "-v" ]]; then [[ -n "${STUB_ALLOW_V:-}" ]] && exit 0; exit 1; fi
+if [[ "${1:-}" == "-k" && "${2:-}" == "-n" && "${3:-}" == "/usr/bin/true" ]]; then
+  [[ -n "${STUB_SUDO_TOKEN:-}" && "${4:-}" == "$STUB_SUDO_TOKEN" ]] && exit 0
+  exit 1
+fi
+exit 0
+STUB
+    cat > "$STUB_BIN/softwareupdate" <<'STUB'
+#!/bin/bash
+echo "softwareupdate $*" >> "$STUB_CALLS"
+if [[ "${1:-}" == "--list" ]]; then printf '%b' "${STUB_SWU_LIST:-No new software available.\n}"; fi
+exit 0
+STUB
+    cat > "$STUB_BIN/osascript" <<'STUB'
+#!/bin/bash
+echo "osascript $*" >> "$STUB_CALLS"
+exit 0
+STUB
+    cat > "$STUB_BIN/defaults" <<'STUB'
+#!/bin/bash
+echo "defaults $*" >> "$STUB_CALLS"
+if [[ -n "${STUB_AUTO_UPDATE:-}" ]]; then echo "$STUB_AUTO_UPDATE"; exit 0; fi
+exit 1
+STUB
+    cat > "$STUB_BIN/mdutil" <<'STUB'
+#!/bin/bash
+echo "mdutil $*" >> "$STUB_CALLS"
+exit 0
+STUB
+    chmod +x "$STUB_BIN"/*
+}
+
+# Load the sudoers constants and helpers from htotheizzo.sh (it runs main
+# when executed, so it can't be sourced)
+load_sudoers_helpers() {
+    eval "$(sed -n '/^SUDOERS_ALLOWED_CMDS=(/,/^)/p; /^SUDOERS_DEFAULT_FILE=/p' htotheizzo.sh)"
+    eval "$(sed -n '/^sudoers_user() {/,/^}/p; /^sudoers_rule_body() {/,/^}/p; /^sudoers_probe_token() {/,/^}/p; /^sudoers_rule_text() {/,/^}/p; /^sudoers_validate_file() {/,/^}/p; /^sudoers_probe_ok() {/,/^}/p; /^sudo_cmd_allowed() {/,/^}/p; /^_sudoers_path_guard() {/,/^}/p; /^install_sudoers() {/,/^}/p; /^uninstall_sudoers() {/,/^}/p' htotheizzo.sh)"
+}
+
+# Real (non-mock) unattended run limited to the sections the caller selects
+# with only_<name>=1, with every external command that matters stubbed.
+# Usage: only_x=1 [STUB_...=...] run_unattended_fast > log 2>&1
+run_unattended_fast() {
+    if [[ "$(PATH="$STUB_BIN:$PATH" command -v sudo)" != "$STUB_BIN/sudo" ]]; then
+        echo "refusing to run: stub sudo is not first on PATH" >&2
+        return 99
+    fi
+    PATH="$STUB_BIN:$PATH" HOME="$TEST_DIR/home" \
+        skip_file_logging=1 skip_self_update=1 \
+        ./htotheizzo.sh --unattended
+}
+
+test_sudoers_rule_text() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Sudoers rule: valid, deterministic, only safe exact commands"
+
+    local fails=""
+    (
+        load_sudoers_helpers
+        sudoers_rule_text > "$TEST_DIR/rule1"
+        sudoers_rule_text > "$TEST_DIR/rule2"
+        sudoers_validate_file "$TEST_DIR/rule1" 2>/dev/null || echo "invalid-rule" >> "$TEST_DIR/rule_fails"
+        cmp -s "$TEST_DIR/rule1" "$TEST_DIR/rule2" || echo "not-deterministic" >> "$TEST_DIR/rule_fails"
+        [[ $(grep -c 'NOPASSWD:' "$TEST_DIR/rule1") -eq 1 ]] || echo "not-one-rule-line" >> "$TEST_DIR/rule_fails"
+        grep -q "/usr/bin/true $(sudoers_probe_token)\$" "$TEST_DIR/rule1" || echo "no-probe-entry" >> "$TEST_DIR/rule_fails"
+        grep -q '/usr/sbin/purge ""' "$TEST_DIR/rule1" || echo "no-empty-args-marker" >> "$TEST_DIR/rule_fails"
+
+        local entry
+        for entry in "${SUDOERS_ALLOWED_CMDS[@]}"; do
+            [[ "$entry" =~ ^/usr/(bin|sbin|libexec)/ ]] || echo "non-system-path:$entry" >> "$TEST_DIR/rule_fails"
+            [[ "$entry" == *[\*\?\[\\,:=!\"]* ]] && echo "meta-char:$entry" >> "$TEST_DIR/rule_fails"
+            case "${entry%% *}" in
+                */sh|*/bash|*/zsh|*/env|*/osascript|*/sudo|*/su|*/xcodebuild|*/periodic|*htotheizzo*)
+                    echo "forbidden:$entry" >> "$TEST_DIR/rule_fails" ;;
+            esac
+        done
+
+        printf '%s\n' 'u ALL=(root) NOPASSWD: purge' > "$TEST_DIR/broken_rule"
+        sudoers_validate_file "$TEST_DIR/broken_rule" 2>/dev/null && echo "broken-rule-accepted" >> "$TEST_DIR/rule_fails"
+
+        local token_before token_after
+        token_before=$(sudoers_probe_token)
+        SUDOERS_ALLOWED_CMDS+=("/usr/bin/true extra")
+        token_after=$(sudoers_probe_token)
+        [[ "$token_before" != "$token_after" ]] || echo "token-ignores-list" >> "$TEST_DIR/rule_fails"
+    )
+    [[ -f "$TEST_DIR/rule_fails" ]] && fails=$(tr '\n' ' ' < "$TEST_DIR/rule_fails")
+
+    if [[ -z "$fails" ]]; then
+        log_pass "Rule passes visudo, is stable, and lists only exact system commands"
+    else
+        log_fail "Rule problems: $fails"
+    fi
+}
+
+test_sudoers_probe() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Sudoers probe: true only for the current token, never prompts"
+
+    make_sudo_stubs
+    local result
+    result=$(
+        load_sudoers_helpers
+        token=$(sudoers_probe_token)
+        export PATH="$STUB_BIN:$PATH"
+        r=""
+        STUB_SUDO_TOKEN="$token" sudoers_probe_ok && r+="current-ok "
+        STUB_SUDO_TOKEN="htotheizzo-probe-stale000" sudoers_probe_ok || r+="stale-rejected "
+        sudoers_probe_ok || r+="none-rejected "
+        echo "$r"
+    )
+    if [[ "$result" == "current-ok stale-rejected none-rejected " ]] \
+        && grep -q '^sudo -k -n /usr/bin/true htotheizzo-probe-' "$STUB_CALLS"; then
+        log_pass "Probe uses -k -n and only accepts the current token"
+    else
+        log_fail "Probe results: '$result' calls: $(tr '\n' '|' < "$STUB_CALLS")"
+    fi
+}
+
+test_install_sudoers_guards() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "--install-sudoers: macOS only; invalid rule installs nothing"
+
+    make_sudo_stubs
+    local fails="" out rc
+    out=$(load_sudoers_helpers; export PATH="$STUB_BIN:$PATH"; unset HTOTHEIZZO_TEST; OSTYPE=linux-gnu; install_sudoers 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 1 && "$out" == *"macOS only"* ]] || fails+=" non-macos($rc:$out)"
+
+    out=$(
+        load_sudoers_helpers
+        export PATH="$STUB_BIN:$PATH"
+        HTOTHEIZZO_TEST=1
+        SUDOERS_FILE="$TEST_DIR/fake_sudoers"
+        SUDOERS_ALLOWED_CMDS=("purge")
+        install_sudoers 2>&1
+    ) && rc=0 || rc=$?
+    [[ $rc -eq 1 && "$out" == *"failed validation"* ]] || fails+=" invalid-not-rejected($rc)"
+    [[ -s "$STUB_CALLS" ]] && fails+=" sudo-called($(tr '\n' '|' < "$STUB_CALLS"))"
+
+    out=$(load_sudoers_helpers; export PATH="$STUB_BIN:$PATH"; unset HTOTHEIZZO_TEST; SUDOERS_FILE=/tmp/elsewhere; install_sudoers 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 1 && "$out" == *"refusing"* ]] || fails+=" path-override-accepted"
+
+    if [[ -z "$fails" ]]; then
+        log_pass "Install refuses non-macOS, invalid rules and foreign paths without calling sudo"
+    else
+        log_fail "Install guards:$fails"
+    fi
+}
+
+test_install_sudoers_transaction() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "--install-sudoers: installs, replaces, rolls back; --uninstall-sudoers removes"
+
+    make_sudo_stubs
+    local rule="$TEST_DIR/sudoers.d/htotheizzo" fails="" out rc
+    mkdir -p "$TEST_DIR/sudoers.d"
+    run_install() {
+        (
+            load_sudoers_helpers
+            export PATH="$STUB_BIN:$PATH" STUB_SUDO_EXEC=1 STUB_RULE_FILE="$rule"
+            HTOTHEIZZO_TEST=1
+            SUDOERS_FILE="$rule"
+            "$@"
+        )
+    }
+    local expected
+    expected=$(load_sudoers_helpers; sudoers_rule_text)
+
+    out=$(run_install install_sudoers 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 0 ]] || fails+=" fresh-rc=$rc($out)"
+    [[ "$(cat "$rule" 2>/dev/null)" == "$expected" ]] || fails+=" fresh-content"
+    [[ "$(stat -f %Lp "$rule" 2>/dev/null)" == "440" ]] || fails+=" mode"
+    [[ "$out" == *"/usr/sbin/purge"* && "$out" == *"--uninstall-sudoers"* ]] || fails+=" fresh-output"
+
+    out=$(run_install install_sudoers 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 0 && "$(cat "$rule")" == "$expected" ]] || fails+=" reinstall"
+    ls "$TEST_DIR/sudoers.d" | grep -q backup && fails+=" backup-left"
+
+    chmod 644 "$rule"; echo "# old rule" > "$rule"
+    out=$(STUB_PROBE_FAIL=1 run_install install_sudoers 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 1 && "$out" == *"not effective"*"rolled back"* ]] || fails+=" probe-fail-rc=$rc"
+    [[ "$(cat "$rule")" == "# old rule" ]] || fails+=" old-not-restored"
+    ls "$TEST_DIR/sudoers.d" | grep -q backup && fails+=" backup-left-after-rollback"
+
+    rm -f "$rule"
+    out=$(STUB_VISUDO_FAIL=1 run_install install_sudoers 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 1 && "$out" == *"failed validation; rolled back"* ]] || fails+=" visudo-fail-rc=$rc"
+    [[ -e "$rule" ]] && fails+=" new-not-removed"
+
+    out=$(run_install install_sudoers 2>&1) || true
+    out=$(run_install uninstall_sudoers 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 0 && ! -e "$rule" && "$out" == *"Removed"* ]] || fails+=" uninstall"
+
+    if [[ -z "$fails" ]]; then
+        log_pass "Fresh install, reinstall, both rollbacks and uninstall behave"
+    else
+        log_fail "Install transaction:$fails"
+    fi
+}
+
+test_sudoers_status_and_uninstall() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "--status sudo rule section and --uninstall-sudoers when absent"
+
+    make_sudo_stubs
+    local token fails="" out fake="$TEST_DIR/fake_sudoers"
+    token=$(load_sudoers_helpers; sudoers_probe_token)
+    rm -f "$fake"
+
+    out=$(PATH="$STUB_BIN:$PATH" HOME="$TEST_DIR/home" HTOTHEIZZO_TEST=1 HTOTHEIZZO_SUDOERS_FILE="$fake" ./htotheizzo.sh --status 2>&1)
+    [[ "$out" == *"not installed (run --install-sudoers)"* ]] || fails+=" not-installed"
+
+    touch "$fake"
+    out=$(PATH="$STUB_BIN:$PATH" HOME="$TEST_DIR/home" HTOTHEIZZO_TEST=1 HTOTHEIZZO_SUDOERS_FILE="$fake" ./htotheizzo.sh --status 2>&1)
+    [[ "$out" == *"installed but outdated"* ]] || fails+=" outdated"
+
+    out=$(PATH="$STUB_BIN:$PATH" HOME="$TEST_DIR/home" STUB_SUDO_TOKEN="$token" HTOTHEIZZO_TEST=1 HTOTHEIZZO_SUDOERS_FILE="$fake" ./htotheizzo.sh --status 2>&1)
+    [[ "$out" == *"active (5 commands permitted)"* ]] || fails+=" active"
+
+    rm -f "$fake"
+    local rc
+    out=$(PATH="$STUB_BIN:$PATH" HTOTHEIZZO_TEST=1 HTOTHEIZZO_SUDOERS_FILE="$fake" ./htotheizzo.sh --uninstall-sudoers 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 0 && "$out" == *"nothing to remove"* ]] || fails+=" uninstall-absent($rc)"
+    grep -q 'sudo rm' "$STUB_CALLS" && fails+=" uninstall-called-sudo"
+
+    if [[ -z "$fails" ]]; then
+        log_pass "Status shows not installed / outdated / active; uninstall is a no-op when absent"
+    else
+        log_fail "Status/uninstall:$fails"
+    fi
+}
+
+test_sudo_call_sites_match_allowlist() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Every permitted command is called with exactly its permitted form"
+
+    local missing="" entry bin line
+    while IFS= read -r entry; do
+        grep -qF "sudo $entry " htotheizzo.sh || grep -qF "sudo $entry\"" htotheizzo.sh || missing+=" [$entry]"
+        # every sudo call of this binary (by name or path) must use exactly this form
+        bin="${entry%% *}"
+        while IFS= read -r line; do
+            [[ "$line" == *"sudo $entry "* || "$line" == *"sudo $entry\""* ]] || missing+=" [other-form:${line# }]"
+        done < <(grep -E "sudo +(/[a-z/]+/)?${bin##*/}( |\"|$)" htotheizzo.sh | grep -v '^ *#' || true)
+    done < <(load_sudoers_helpers; printf '%s\n' "${SUDOERS_ALLOWED_CMDS[@]}")
+
+    if [[ -z "$missing" ]]; then
+        log_pass "All permitted command lines appear verbatim at their call sites"
+    else
+        log_fail "No matching call site for:$missing"
+    fi
+}
+
+test_unattended_rule_active() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Unattended + active rule: permitted steps run, others skipped and counted"
+
+    make_sudo_stubs
+    local token out rc fails=""
+    token=$(load_sudoers_helpers; sudoers_probe_token)
+    out=$(only_system_maintenance=1 only_spotlight=1 STUB_SUDO_TOKEN="$token" run_unattended_fast 2>&1) && rc=0 || rc=$?
+
+    [[ $rc -eq 0 ]] || fails+=" exit=$rc"
+    [[ "$out" == *"sudo rule active (5 commands permitted)"* ]] || fails+=" no-active-log"
+    local cmd
+    for cmd in "/usr/libexec/locate.updatedb" "/usr/bin/dscacheutil -flushcache" "/usr/bin/killall -HUP mDNSResponder"; do
+        grep -qxF "sudo -n $cmd" "$STUB_CALLS" || fails+=" not-run[$cmd]"
+    done
+    grep -q 'mdutil' "$STUB_CALLS" && fails+=" mdutil-reached-sudo"
+    [[ "$out" == *"Skipped (needs sudo): sudo mdutil -E /"* ]] || fails+=" mdutil-not-skipped"
+    [[ "$out" == *"Note: 1 step(s) needing sudo were skipped"* ]] || fails+=" wrong-count"
+    [[ "$out" == *"Notification sent: htotheizzo - All updates completed successfully; 1 admin step(s) skipped"* ]] || fails+=" notification"
+    grep -q 'softwareupdate --install' "$STUB_CALLS" && fails+=" os-install"
+
+    if [[ -z "$fails" ]]; then
+        log_pass "3 permitted commands ran via sudo -n; Spotlight rebuild skipped and counted"
+    else
+        log_fail "Active rule:$fails"
+    fi
+}
+
+test_unattended_rule_inactive() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Unattended without the rule: every sudo step skipped, as before"
+
+    make_sudo_stubs
+    local out rc fails=""
+    out=$(only_system_maintenance=1 run_unattended_fast 2>&1) && rc=0 || rc=$?
+
+    [[ $rc -eq 0 ]] || fails+=" exit=$rc"
+    [[ "$out" == *"no sudo credentials; steps that need sudo will be skipped"* ]] || fails+=" no-skip-log"
+    grep -v -e '^sudo -n true$' -e '^sudo -k -n /usr/bin/true ' -e '^osascript ' -e '^defaults ' "$STUB_CALLS" | grep -q '^sudo' && fails+=" sudo-ran($(tr '\n' '|' < "$STUB_CALLS"))"
+    [[ "$out" == *"Note: 3 step(s) needing sudo were skipped"*"--install-sudoers"* ]] || fails+=" note"
+
+    if [[ -z "$fails" ]]; then
+        log_pass "No maintenance command reached sudo; 3 skipped and counted"
+    else
+        log_fail "Inactive rule:$fails"
+    fi
+}
+
+test_unattended_softwareupdate() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Unattended: macOS updates reported, never installed; tip only when setting is off"
+
+    make_sudo_stubs
+    local list='Software Update found the following new or updated software:\n* Label: macOS Tahoe 27.2.1-26C10\n\tTitle: macOS Tahoe 27.2.1, Version: 27.2.1, Size: 1G, Recommended: YES, Action: restart,\n* Label: Safari26.2-26.2\n\tTitle: Safari, Version: 26.2, Size: 100M, Recommended: YES,\n'
+    local out rc fails=""
+
+    out=$(only_softwareupdate=1 STUB_SWU_LIST="$list" STUB_AUTO_UPDATE=0 run_unattended_fast 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 0 ]] || fails+=" exit=$rc"
+    grep -q 'softwareupdate --install' "$STUB_CALLS" && fails+=" installed"
+    [[ "$out" == *"macOS updates pending: 2"* ]] || fails+=" no-pending-log"
+    [[ "$out" == *"Notification sent: htotheizzo - All updates completed successfully; macOS updates pending"* ]] || fails+=" notification"
+    [[ "$out" == *"Tip: turn on System Settings"* ]] || fails+=" no-tip-when-off"
+    [[ "$out" == *"needing sudo were skipped"* ]] && fails+=" counted-as-skip"
+
+    : > "$STUB_CALLS"
+    out=$(only_softwareupdate=1 STUB_SWU_LIST="$list" STUB_AUTO_UPDATE=1 run_unattended_fast 2>&1) || true
+    [[ "$out" == *"Tip: turn on"* ]] && fails+=" tip-when-on"
+
+    : > "$STUB_CALLS"
+    out=$(only_softwareupdate=1 STUB_SWU_LIST="$list" run_unattended_fast 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 0 ]] || fails+=" unreadable-setting-exit=$rc"
+    [[ "$out" == *"Tip: turn on"* ]] && fails+=" tip-when-unknown"
+
+    : > "$STUB_CALLS"
+    out=$(only_softwareupdate=1 run_unattended_fast 2>&1) && rc=0 || rc=$?
+    [[ $rc -eq 0 ]] || fails+=" zero-updates-exit=$rc"
+    [[ "$out" == *"macOS updates pending"* ]] && fails+=" pending-when-none"
+    [[ "$out" == *"Notification sent: htotheizzo - All updates completed successfully"$'\n'* || "$out" == *"Notification sent: htotheizzo - All updates completed successfully" ]] || fails+=" plain-notification"
+
+    if [[ -z "$fails" ]]; then
+        log_pass "Pending updates logged and notified, nothing installed, tip only when off"
+    else
+        log_fail "softwareupdate unattended:$fails"
+    fi
+}
+
+test_spotlight_opt_in() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Spotlight rebuild runs only when requested"
+
+    make_sudo_stubs
+    local fails="" out
+    out=$(PATH="$STUB_BIN:$PATH" HOME="$TEST_DIR/home" skip_spotlight= run_htotheizzo_fast 2>&1) || true
+    grep -q 'mdutil' "$STUB_CALLS" && fails+=" rebuilt-by-default"
+    [[ "$out" == *"Skipped spotlight"* ]] || fails+=" no-skip-log"
+
+    : > "$STUB_CALLS"
+    out=$(PATH="$STUB_BIN:$PATH" HOME="$TEST_DIR/home" skip_spotlight= spotlight_rebuild=1 run_htotheizzo_fast 2>&1) || true
+    [[ "$out" == *"MOCK: sudo mdutil -E /"* ]] || fails+=" not-rebuilt-when-requested"
+    grep -q '^sudo' "$STUB_CALLS" && fails+=" mock-reached-sudo($(tr '\n' '|' < "$STUB_CALLS"))"
+
+    out=$(PATH="$STUB_BIN:$PATH" HOME="$TEST_DIR/home" skip_spotlight= spotlight_rebuild=0 run_htotheizzo_fast 2>&1) || true
+    [[ "$out" == *"mdutil"* ]] && fails+=" rebuilt-with-0"
+
+    if [[ -z "$fails" ]]; then
+        log_pass "Default run skips the rebuild; spotlight_rebuild=1 runs it"
+    else
+        log_fail "Spotlight gate:$fails"
+    fi
+}
+
+test_help_lists_sudoers_flags() {
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_test "Help lists the sudoers flags and the Spotlight opt-in"
+
+    local output
+    output=$(./htotheizzo.sh --help 2>&1)
+    if [[ "$output" == *"--install-sudoers"* && "$output" == *"--uninstall-sudoers"* && "$output" == *"spotlight_rebuild=1"* ]]; then
+        log_pass "Help documents --install-sudoers, --uninstall-sudoers, spotlight_rebuild"
+    else
+        log_fail "Help is missing sudoers flags or spotlight_rebuild"
+    fi
+}
+
+run_unattended_sudo_tests() {
+    log_section "Unattended sudo"
+    test_sudoers_rule_text
+    test_sudoers_probe
+    test_install_sudoers_guards
+    test_install_sudoers_transaction
+    test_sudoers_status_and_uninstall
+    test_sudo_call_sites_match_allowlist
+    test_unattended_rule_active
+    test_unattended_rule_inactive
+    test_unattended_softwareupdate
+    test_spotlight_opt_in
+    test_help_lists_sudoers_flags
+}
+
 print_summary() {
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -890,6 +1316,13 @@ main() {
     cd "$(dirname "$0")"
     setup
 
+    # TEST_ONLY=sudo runs just the unattended-sudo tests (fast iteration)
+    if [[ "${TEST_ONLY:-}" == "sudo" ]]; then
+        run_unattended_sudo_tests
+        cleanup
+        print_summary && exit 0 || exit 1
+    fi
+
     log_section "Skip Flags & CLI"
     test_skip_flags
     test_help_flag
@@ -922,6 +1355,8 @@ main() {
     test_sparkle_no_apps_found
     test_sparkle_failure_tolerance
     test_sparkle_regression
+
+    run_unattended_sudo_tests
 
     cleanup
 
