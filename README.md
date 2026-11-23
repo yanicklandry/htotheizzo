@@ -165,7 +165,10 @@ Before the Sparkle section, htotheizzo keeps the `antares` checkout itself curre
 
 It never touches local work: the update is skipped, with a warning, when the checkout is not on its default branch or has uncommitted changes.
 
+After the update it checks that antares' hourly health agent really has Full Disk Access through its launcher app (`~/Applications/Antares Health.app`, built by antares `bin/health-app.sh`). The agent must launch through the app, the app must pass its signature check, and the system TCC database must show the app switched on with a grant that still matches its signature (a rebuild silently drops it). On a problem you get a `Warning:` in the end-of-run summary and a dialog with an **Open Settings** button that opens the Full Disk Access pane and shows the app in Finder. The dialog runs detached, so it never blocks a run. The TCC database is only readable with Full Disk Access, so when it can't be read (e.g. under launchd) only the agent wiring is checked. Nothing happens until the app has been built.
+
 - `skip_antares=1` : skip the antares update
+- `skip_antares_fda=1` : skip the Full Disk Access check
 - `only_antares=1` : run only the antares update
 - `force_antares_reinstall=1` : reinstall the watchers even when their definitions did not change
 

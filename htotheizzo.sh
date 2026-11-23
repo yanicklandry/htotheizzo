@@ -162,6 +162,7 @@ help() {
   echo "  only_<name>=1       Run only the specified section(s); skip everything else"
   echo "  Examples: skip_brew=1  skip_sparkle=1  only_sparkle=1  only_brew=1 only_npm=1"
   echo "  force_weekly_cache_clean=1   Run the weekly Python/JS cache clean now"
+  echo "  skip_antares_fda=1           Don't check antares' health app Full Disk Access grant"
   echo "  force_antares_reinstall=1    Reinstall antares watchers even if their definitions did not change"
   echo "  spotlight_rebuild=1          Rebuild the Spotlight index this run (off by default)"
   echo "  WEEKLY_CACHE_CLEAN_DAYS=N    Days between weekly cache cleans (default 7)"
@@ -1659,6 +1660,71 @@ update_antares() {
   return 0
 }
 
+# Check that antares' hourly health agent really runs with Full Disk Access
+# through its launcher app (bin/health-app.sh). Without the grant macOS keeps
+# prompting about chat-app folders, and every rebuild of the app silently drops
+# it. On a problem: a Warning (end-of-run summary) and a dialog with a button
+# that opens the Full Disk Access pane. The grant is read from the system TCC
+# database, which needs Full Disk Access itself: when it isn't readable (e.g.
+# under launchd), only the agent wiring is checked. Opt-in: does nothing until
+# the app has been built. Skip with skip_antares_fda=1.
+ANTARES_FDA_URL="x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+check_antares_health_fda() {
+  if [[ -n "${skip_antares_fda:-}" ]]; then return 0; fi
+  local dir="${ANTARES_DIR:-$HOME/Developer/2026/antares}"
+  local app="$HOME/Applications/Antares Health.app" app_id="io.github.lenzai.antares.health"
+  local exe="$app/Contents/MacOS/antares-health"
+  local plist="$HOME/Library/LaunchAgents/io.github.lenzai.antares.health.plist"
+  if [[ -f "$dir/bin/health-app.env" ]]; then  # antares' one place for these names
+    local v
+    v=$(sed -nE 's/^HEALTH_APP_ID="([^"]+)".*/\1/p' "$dir/bin/health-app.env")
+    [[ -n "$v" ]] && app_id="$v"
+  fi
+  [[ -d "$app" && -f "$plist" ]] || return 0
+
+  local problem=""
+  if [[ "$(plutil -extract ProgramArguments.0 raw -o - "$plist" 2>/dev/null)" != "$exe" ]]; then
+    problem="antares health agent doesn't launch through Antares Health.app, so it runs without Full Disk Access; re-run: only_antares=1 force_antares_reinstall=1 htotheizzo.sh"
+  elif ! codesign --verify --strict "$app" 2>/dev/null; then
+    problem="Antares Health.app fails its signature check; rebuild it (antares bin/health-app.sh --reveal) and grant Full Disk Access again"
+  else
+    local db="/Library/Application Support/com.apple.TCC/TCC.db" row
+    if ! row=$(sqlite3 -readonly -separator '|' "$db" \
+        "select auth_value, hex(csreq) from access where service='kTCCServiceSystemPolicyAllFiles' and client='$app_id'" 2>/dev/null); then
+      log "antares health app: Full Disk Access grant not verifiable from here (TCC database unreadable); agent wiring ok"
+      return 0
+    fi
+    if [[ -z "$row" ]]; then
+      problem="Antares Health.app is not in the Full Disk Access list; add it and switch it on"
+    elif [[ "${row%%|*}" != 2 ]]; then
+      problem="Antares Health.app is in the Full Disk Access list but switched off; switch it on"
+    else
+      local req
+      req=$(printf '%s' "${row#*|}" | xxd -r -p | csreq -r- -t 2>/dev/null || true)
+      if [[ -n "$req" ]] && ! codesign --verify -R="$req" "$app" 2>/dev/null; then
+        problem="Antares Health.app was rebuilt, so its Full Disk Access grant no longer applies; remove the old entry, add the app again and switch it on"
+      fi
+    fi
+  fi
+
+  if [[ -z "$problem" ]]; then
+    log "antares health app: Full Disk Access granted"
+    return 0
+  fi
+  log "Warning: $problem (System Settings > Privacy & Security > Full Disk Access: open \"$ANTARES_FDA_URL\")"
+  [[ -n "${MOCK_MODE:-}" || -n "${skip_notifications:-}" ]] && return 0
+  [[ "$OSTYPE" == darwin* ]] && command -v osascript >/dev/null 2>&1 || return 0
+  # Detached so it never blocks the run (the 02:00 one included): it waits on
+  # screen until answered, or gives up after 12 h.
+  local msg="${problem//\"/\\\"}"
+  nohup osascript \
+    -e "set r to display dialog \"$msg\" with title \"htotheizzo: antares Full Disk Access\" buttons {\"Later\", \"Open Settings\"} default button \"Open Settings\" with icon caution giving up after 43200" \
+    -e "if button returned of r is \"Open Settings\" then do shell script \"open '$ANTARES_FDA_URL'; open -R \" & quoted form of \"$app\"" \
+    >/dev/null 2>&1 &
+  disown 2>/dev/null || true
+  log "Shown a dialog with a link to the Full Disk Access settings"
+}
+
 update_sparkle_apps() {
   progress "Updating Sparkle apps"
   log "Updating Sparkle apps..."
@@ -2052,6 +2118,7 @@ update() {
 
     if should_run antares; then
       update_antares
+      check_antares_health_fda
     else
       log "Skipped antares"
     fi
