@@ -125,7 +125,7 @@ skip_docker=1 skip_gcloud=1 skip_aws=1 htotheizzo.sh
 skip_pip=1 skip_pip3=1 skip_poetry=1 skip_conda=1 htotheizzo.sh
 ```
 
-All available skip variables: `skip_time_machine`, `skip_brew`, `skip_mas`, `skip_snap`, `skip_flatpak`, `skip_bun`, `skip_npm`, `skip_yarn`, `skip_pnpm`, `skip_deno`, `skip_pip`, `skip_pip3`, `skip_pipenv`, `skip_poetry`, `skip_pdm`, `skip_uv`, `skip_conda`, `skip_mamba`, `skip_gem`, `skip_rvm`, `skip_rbenv`, `skip_rustup`, `skip_cargo`, `skip_go`, `skip_composer`, `skip_cpan`, `skip_asdf`, `skip_mise`, `skip_nvm`, `skip_nodenv`, `skip_pyenv`, `skip_goenv`, `skip_jenv`, `skip_sdk`, `skip_tfenv`, `skip_docker`, `skip_helm`, `skip_kubectl`, `skip_gh`, `skip_gcloud`, `skip_aws`, `skip_az`, `skip_code`, `skip_claude`, `skip_gsd`, `skip_pod`, `skip_flutter`, `skip_omz`, `skip_antibody`, `skip_fisher`, `skip_starship`, `skip_port`, `skip_nix-env`, `skip_kav`, `skip_apm`, `skip_spotlight`, `skip_launchpad`, `skip_sparkle`, `skip_dev_caches`
+All available skip variables: `skip_time_machine`, `skip_brew`, `skip_mas`, `skip_snap`, `skip_flatpak`, `skip_bun`, `skip_npm`, `skip_yarn`, `skip_pnpm`, `skip_deno`, `skip_pip`, `skip_pip3`, `skip_pipenv`, `skip_poetry`, `skip_pdm`, `skip_uv`, `skip_conda`, `skip_mamba`, `skip_gem`, `skip_rvm`, `skip_rbenv`, `skip_rustup`, `skip_cargo`, `skip_go`, `skip_composer`, `skip_cpan`, `skip_asdf`, `skip_mise`, `skip_nvm`, `skip_nodenv`, `skip_pyenv`, `skip_goenv`, `skip_jenv`, `skip_sdk`, `skip_tfenv`, `skip_docker`, `skip_helm`, `skip_kubectl`, `skip_gh`, `skip_gcloud`, `skip_aws`, `skip_az`, `skip_code`, `skip_claude`, `skip_gsd`, `skip_pod`, `skip_flutter`, `skip_omz`, `skip_antibody`, `skip_fisher`, `skip_starship`, `skip_port`, `skip_nix-env`, `skip_kav`, `skip_apm`, `skip_spotlight`, `skip_launchpad`, `skip_antares`, `skip_sparkle`, `skip_dev_caches`
 
 ### Developer Cache Cleanup
 
@@ -158,6 +158,16 @@ The last weekly clean is recorded in `~/.local/state/htotheizzo/last_weekly_cach
 - `WEEKLY_CACHE_CLEAN_DAYS=N` : days between weekly cleans (default 7)
 
 uv cache commands give up after 1 second if another uv process (e.g. a uvx MCP server) holds the cache lock, and are skipped for that run.
+
+### Antares Self-Update
+
+Before the Sparkle section, htotheizzo keeps the `antares` checkout itself current: it runs `git pull --ff-only` in `ANTARES_DIR` (default `~/Developer/2026/antares`) and, when that brings new commits, re-runs antares' `bin/install.sh` to reinstall its launchd watchers (backup, health, fast-sample, mem-watchdog). Opt-in antares agents with their own installer (`install-uv-prune.sh`, `install-pytest-prune.sh`, `install-supply-chain-scan.sh`) are re-run only if already installed; the root watchdog (needs `sudo`) is only reported.
+
+It never touches local work: the update is skipped, with a warning, when the checkout is not on its default branch or has uncommitted changes.
+
+- `skip_antares=1` : skip the antares update
+- `only_antares=1` : run only the antares update
+- `force_antares_reinstall=1` : reinstall the watchers even when `git pull` brought nothing new
 
 ### Sparkle App Updates
 

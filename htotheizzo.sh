@@ -162,6 +162,7 @@ help() {
   echo "  only_<name>=1       Run only the specified section(s); skip everything else"
   echo "  Examples: skip_brew=1  skip_sparkle=1  only_sparkle=1  only_brew=1 only_npm=1"
   echo "  force_weekly_cache_clean=1   Run the weekly Python/JS cache clean now"
+  echo "  force_antares_reinstall=1    Reinstall antares watchers even if git pull brought nothing"
   echo "  spotlight_rebuild=1          Rebuild the Spotlight index this run (off by default)"
   echo "  WEEKLY_CACHE_CLEAN_DAYS=N    Days between weekly cache cleans (default 7)"
   echo "  HTOTHEIZZO_HOUR=H HTOTHEIZZO_MINUTE=M   Daily time for --install-launchd (default 02:00)"
@@ -1547,6 +1548,80 @@ mac_disk_maintenance() {
   fi
 }
 
+# Pull the antares checkout and, when it moved, reinstall its launchd watchers
+# (bin/install.sh re-renders + reloads every agent it owns). Opt-in agents with
+# their own installer (install-uv-prune.sh, ...) are re-run only if already
+# installed. Runs before update_sparkle_apps so that uses the fresh updater.
+# Only fast-forwards a clean checkout on its default branch: never touches
+# local work. force_antares_reinstall=1 reinstalls even with no new commits.
+update_antares() {
+  local dir="${ANTARES_DIR:-$HOME/Developer/2026/antares}"
+  if ! git -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
+    log "Antares checkout not found at $dir; skipping antares update"
+    return 0
+  fi
+
+  progress "Updating antares"
+  log "Updating antares ($dir)..."
+
+  local branch default
+  branch=$(git -C "$dir" symbolic-ref --short -q HEAD || true)
+  default=$(git -C "$dir" symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true)
+  default="${default#origin/}"
+  default="${default:-main}"
+  if [[ "$branch" != "$default" ]]; then
+    log "Warning: antares is on '${branch:-detached HEAD}', not '$default'; skipping antares update"
+    return 0
+  fi
+  if [[ -n "$(git -C "$dir" status --porcelain --untracked-files=no)" ]]; then
+    log "Warning: antares has uncommitted changes; skipping antares update"
+    return 0
+  fi
+
+  if [[ -n "${MOCK_MODE:-}" ]]; then
+    log "[MOCK] git -C $dir pull --ff-only && $dir/bin/install.sh"
+    return 0
+  fi
+
+  local before after pull_status=0
+  before=$(git -C "$dir" rev-parse HEAD)
+  git -C "$dir" pull --ff-only --quiet 2>&1 | while IFS= read -r line; do log "  $line"; done || pull_status=$?
+  after=$(git -C "$dir" rev-parse HEAD)
+  if [[ "$before" == "$after" ]]; then
+    if [[ $pull_status -eq 0 ]]; then
+      log "antares already up to date ($(git -C "$dir" log -1 --format=%h))"
+    else
+      log "Warning: antares git pull --ff-only failed (exit $pull_status: diverged or offline?)"
+    fi
+    if [[ -z "${force_antares_reinstall:-}" ]]; then return 0; fi
+  else
+    log "antares updated $(git -C "$dir" log -1 --format=%h "$before")..$(git -C "$dir" log -1 --format=%h) ($(git -C "$dir" rev-list --count "$before..$after") commit(s))"
+  fi
+
+  log "Reinstalling antares watchers..."
+  local status=0
+  (cd "$dir" && bash bin/install.sh) 2>&1 | while IFS= read -r line; do log "  $line"; done || status=$?
+  if [[ $status -ne 0 ]]; then log "Warning: antares bin/install.sh failed (exit $status)"; fi
+
+  # Opt-in user agents: re-run their installer only if the agent is installed.
+  # install-root-watchdog.sh needs sudo, so it's only reported, never run here.
+  local installer label
+  for installer in "$dir"/bin/install-*.sh; do
+    [[ -f "$installer" ]] || continue
+    label=$(sed -nE 's/^LABEL="([^"]+)".*/\1/p' "$installer" | head -1)
+    [[ -n "$label" ]] || continue
+    if [[ -f "$HOME/Library/LaunchAgents/$label.plist" ]]; then
+      log "Reinstalling opt-in antares agent $label..."
+      status=0
+      (cd "$dir" && bash "$installer") 2>&1 | while IFS= read -r line; do log "  $line"; done || status=$?
+      if [[ $status -ne 0 ]]; then log "Warning: antares $(basename "$installer") failed (exit $status)"; fi
+    elif [[ -f "/Library/LaunchDaemons/$label.plist" ]]; then
+      log "Note: root antares daemon $label not reinstalled (needs: sudo $installer)"
+    fi
+  done
+  return 0
+}
+
 update_sparkle_apps() {
   progress "Updating Sparkle apps"
   log "Updating Sparkle apps..."
@@ -1936,6 +2011,12 @@ update() {
     if [ -d "/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app" ]; then
       log "Opening Microsoft AutoUpdate..."
       open "/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app" || log "Warning: failed to open Microsoft AutoUpdate"
+    fi
+
+    if should_run antares; then
+      update_antares
+    else
+      log "Skipped antares"
     fi
 
     if should_run sparkle; then
