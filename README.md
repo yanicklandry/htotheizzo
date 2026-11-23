@@ -161,13 +161,13 @@ uv cache commands give up after 1 second if another uv process (e.g. a uvx MCP s
 
 ### Antares Self-Update
 
-Before the Sparkle section, htotheizzo keeps the `antares` checkout itself current: it runs `git pull --ff-only` in `ANTARES_DIR` (default `~/Developer/2026/antares`) and, when that brings new commits, re-runs antares' `bin/install.sh` to reinstall its launchd watchers (backup, health, fast-sample, mem-watchdog). Opt-in antares agents with their own installer (`install-uv-prune.sh`, `install-pytest-prune.sh`, `install-supply-chain-scan.sh`) are re-run only if already installed; the root watchdog (needs `sudo`) is only reported.
+Before the Sparkle section, htotheizzo keeps the `antares` checkout itself current: it runs `git pull --ff-only` in `ANTARES_DIR` (default `~/Developer/2026/antares`). The antares agents run their scripts straight from that checkout, so the pull alone puts new code live. Only when the pull changes the agent definitions (`launchd/`, `bin/install*.sh`, `bin/health-app.env`) does it re-run antares' `bin/install.sh` to reinstall the launchd watchers (backup, health, fast-sample, mem-watchdog); that script also takes a backup and runs a full health check, so it is not run on every update. Opt-in antares agents with their own installer (`install-uv-prune.sh`, `install-pytest-prune.sh`, `install-supply-chain-scan.sh`) are re-run only if already installed; the root watchdog (needs `sudo`) is only reported. The pull never prompts and fails fast when offline, so it can't block the unattended run.
 
 It never touches local work: the update is skipped, with a warning, when the checkout is not on its default branch or has uncommitted changes.
 
 - `skip_antares=1` : skip the antares update
 - `only_antares=1` : run only the antares update
-- `force_antares_reinstall=1` : reinstall the watchers even when `git pull` brought nothing new
+- `force_antares_reinstall=1` : reinstall the watchers even when their definitions did not change
 
 ### Sparkle App Updates
 

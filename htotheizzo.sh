@@ -162,7 +162,7 @@ help() {
   echo "  only_<name>=1       Run only the specified section(s); skip everything else"
   echo "  Examples: skip_brew=1  skip_sparkle=1  only_sparkle=1  only_brew=1 only_npm=1"
   echo "  force_weekly_cache_clean=1   Run the weekly Python/JS cache clean now"
-  echo "  force_antares_reinstall=1    Reinstall antares watchers even if git pull brought nothing"
+  echo "  force_antares_reinstall=1    Reinstall antares watchers even if their definitions did not change"
   echo "  spotlight_rebuild=1          Rebuild the Spotlight index this run (off by default)"
   echo "  WEEKLY_CACHE_CLEAN_DAYS=N    Days between weekly cache cleans (default 7)"
   echo "  HTOTHEIZZO_HOUR=H HTOTHEIZZO_MINUTE=M   Daily time for --install-launchd (default 02:00)"
@@ -1548,15 +1548,36 @@ mac_disk_maintenance() {
   fi
 }
 
-# Pull the antares checkout and, when it moved, reinstall its launchd watchers
-# (bin/install.sh re-renders + reloads every agent it owns). Opt-in agents with
-# their own installer (install-uv-prune.sh, ...) are re-run only if already
-# installed. Runs before update_sparkle_apps so that uses the fresh updater.
+# Log a command's captured output line by line, promoting antares-style
+# warning/error lines to "Warning:" so they reach show_error_summary. Runs in
+# the current shell (here-string, not a pipe) so ERROR_LOG updates survive.
+_log_antares_output() {  # prefix  output
+  local prefix="$1" line
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    if [[ "$line" =~ (^|[^[:alpha:]])(WARNING|[Ww]arning|ERROR|[Ee]rror|fatal): ]] || [[ "$line" == '!!'* ]]; then
+      log "Warning: $prefix: $line"
+    else
+      log "  $line"
+    fi
+  done <<< "$2"
+}
+
+# Pull the antares checkout and, when the pull changed its launchd agent
+# definitions (launchd/ or bin/install*.sh), reinstall its watchers with
+# bin/install.sh. A plain code change needs no reinstall: the agents run the
+# scripts straight from this checkout. install.sh also takes a backup and runs
+# a full health check, so it's kept to the runs that need it. Opt-in agents with
+# their own installer (install-uv-prune.sh, ...) are re-run only if installed.
+# Runs before update_sparkle_apps so that uses the fresh updater.
 # Only fast-forwards a clean checkout on its default branch: never touches
-# local work. force_antares_reinstall=1 reinstalls even with no new commits.
+# local work. force_antares_reinstall=1 reinstalls even with nothing new.
 update_antares() {
   local dir="${ANTARES_DIR:-$HOME/Developer/2026/antares}"
-  if ! git -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
+  local top real
+  top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null || true)
+  real=$(cd -P "$dir" 2>/dev/null && pwd || true)
+  if [[ -z "$top" || "$top" != "$real" || ! -f "$dir/bin/install.sh" ]]; then
     log "Antares checkout not found at $dir; skipping antares update"
     return 0
   fi
@@ -1567,10 +1588,12 @@ update_antares() {
   local branch default
   branch=$(git -C "$dir" symbolic-ref --short -q HEAD || true)
   default=$(git -C "$dir" symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true)
+  if [[ -z "$default" ]]; then  # no origin/HEAD: trust the branch's upstream
+    default=$(git -C "$dir" rev-parse --abbrev-ref -q '@{upstream}' 2>/dev/null || true)
+  fi
   default="${default#origin/}"
-  default="${default:-main}"
-  if [[ "$branch" != "$default" ]]; then
-    log "Warning: antares is on '${branch:-detached HEAD}', not '$default'; skipping antares update"
+  if [[ -z "$branch" || "$branch" != "$default" ]]; then
+    log "Warning: antares is on '${branch:-detached HEAD}', not its default branch '${default:-unknown}'; skipping antares update"
     return 0
   fi
   if [[ -n "$(git -C "$dir" status --porcelain --untracked-files=no)" ]]; then
@@ -1579,28 +1602,41 @@ update_antares() {
   fi
 
   if [[ -n "${MOCK_MODE:-}" ]]; then
-    log "[MOCK] git -C $dir pull --ff-only && $dir/bin/install.sh"
+    log "[MOCK] git -C $dir pull --ff-only && (if agents changed) $dir/bin/install.sh"
     return 0
   fi
 
-  local before after pull_status=0
+  # Unattended-safe pull: never prompt (no tty under launchd), fail fast on a
+  # dead network or a stalled connection instead of blocking the whole run.
+  local before after output pull_status=0
   before=$(git -C "$dir" rev-parse HEAD)
-  git -C "$dir" pull --ff-only --quiet 2>&1 | while IFS= read -r line; do log "  $line"; done || pull_status=$?
+  output=$(GIT_TERMINAL_PROMPT=0 \
+    GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
+    git -C "$dir" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 pull --ff-only --quiet 2>&1) || pull_status=$?
   after=$(git -C "$dir" rev-parse HEAD)
-  if [[ "$before" == "$after" ]]; then
-    if [[ $pull_status -eq 0 ]]; then
-      log "antares already up to date ($(git -C "$dir" log -1 --format=%h))"
-    else
-      log "Warning: antares git pull --ff-only failed (exit $pull_status: diverged or offline?)"
-    fi
-    if [[ -z "${force_antares_reinstall:-}" ]]; then return 0; fi
+
+  local reinstall=""
+  if [[ $pull_status -ne 0 ]]; then
+    local line
+    while IFS= read -r line; do [[ -n "$line" ]] && log "  $line"; done <<< "$output"
+    log "Warning: antares git pull --ff-only failed (exit $pull_status: diverged or offline?)"
+  elif [[ "$before" == "$after" ]]; then
+    log "antares already up to date ($(git -C "$dir" log -1 --format=%h))"
   else
     log "antares updated $(git -C "$dir" log -1 --format=%h "$before")..$(git -C "$dir" log -1 --format=%h) ($(git -C "$dir" rev-list --count "$before..$after") commit(s))"
+    if [[ -n "$(git -C "$dir" diff --name-only "$before" "$after" -- launchd 'bin/install*.sh' bin/health-app.env)" ]]; then
+      reinstall=1
+    else
+      log "antares agent definitions unchanged; no watcher reinstall needed"
+    fi
   fi
+  [[ "${force_antares_reinstall:-}" == "1" ]] && reinstall=1
+  if [[ -z "$reinstall" ]]; then return 0; fi
 
-  log "Reinstalling antares watchers..."
+  log "Reinstalling antares watchers (bin/install.sh)..."
   local status=0
-  (cd "$dir" && bash bin/install.sh) 2>&1 | while IFS= read -r line; do log "  $line"; done || status=$?
+  output=$(cd "$dir" && bash bin/install.sh 2>&1) || status=$?
+  _log_antares_output "antares install.sh" "$output"
   if [[ $status -ne 0 ]]; then log "Warning: antares bin/install.sh failed (exit $status)"; fi
 
   # Opt-in user agents: re-run their installer only if the agent is installed.
@@ -1613,7 +1649,8 @@ update_antares() {
     if [[ -f "$HOME/Library/LaunchAgents/$label.plist" ]]; then
       log "Reinstalling opt-in antares agent $label..."
       status=0
-      (cd "$dir" && bash "$installer") 2>&1 | while IFS= read -r line; do log "  $line"; done || status=$?
+      output=$(cd "$dir" && bash "$installer" 2>&1) || status=$?
+      _log_antares_output "antares $(basename "$installer")" "$output"
       if [[ $status -ne 0 ]]; then log "Warning: antares $(basename "$installer") failed (exit $status)"; fi
     elif [[ -f "/Library/LaunchDaemons/$label.plist" ]]; then
       log "Note: root antares daemon $label not reinstalled (needs: sudo $installer)"
